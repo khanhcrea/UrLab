@@ -1,0 +1,6 @@
+{
+  "name": "UrLab - Interactive Physics Laboratory",
+  "description": "An interactive, online Physics laboratory designed to help 11th-grade students visualize and understand oscillations, waves, and light through physical simulations, equations, and an AI Physics Tutor.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
