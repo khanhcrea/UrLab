@@ -1,6 +1,5 @@
 import express from "express";
 import path from "path";
-import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 
@@ -41,7 +40,7 @@ app.get("/api/health", (req, res) => {
 });
 
 // Chat API Endpoint for AI Physics Tutor
-app.post("/api/chat", async (req, res) => {
+app.post(["/api/chat", "/chat"], async (req, res) => {
   try {
     const { message, history } = req.body;
     
@@ -129,7 +128,7 @@ Keep safety rules in mind: speak only about high school physics/science and UrLa
 });
 
 // AI Physics Quiz API Endpoint
-app.post("/api/quiz", async (req, res) => {
+app.post(["/api/quiz", "/quiz"], async (req, res) => {
   const { topic } = req.body;
   const topicId = topic || "pendulum";
 
@@ -311,7 +310,8 @@ app.post("/api/quiz", async (req, res) => {
 async function setupViteOrStatic() {
   if (process.env.NODE_ENV !== "production") {
     console.log("Starting server in development mode with Vite middleware...");
-    const vite = await createViteServer({
+    const { createServer } = await import("vite");
+    const vite = await createServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
@@ -330,7 +330,11 @@ async function setupViteOrStatic() {
   });
 }
 
-setupViteOrStatic().catch((err) => {
-  console.error("Error setting up server:", err);
-  process.exit(1);
-});
+if (!process.env.VERCEL) {
+  setupViteOrStatic().catch((err) => {
+    console.error("Error setting up server:", err);
+    process.exit(1);
+  });
+}
+
+export default app;
