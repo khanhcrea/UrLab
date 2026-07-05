@@ -20,10 +20,8 @@ function getGeminiClient(): GoogleGenAI {
   if (!apiKey || apiKey === "MY_GEMINI_API_KEY" || apiKey === "") {
     throw new Error("MISSING_KEY");
   }
-  if (apiKey.startsWith("AQ.")) {
-    throw new Error("AUTH_CODE_DETECTED");
-  }
-  if (!apiKey.startsWith("AIzaSy")) {
+  const isValidFormat = apiKey.startsWith("AIzaSy") || apiKey.startsWith("AQ.");
+  if (!isValidFormat) {
     throw new Error("INVALID_FORMAT");
   }
   if (!aiClient || lastApiKey !== apiKey) {
@@ -59,34 +57,13 @@ app.post(["/api/chat", "/chat"], async (req, res) => {
     try {
       ai = getGeminiClient();
     } catch (keyError: any) {
-      if (keyError.message === "AUTH_CODE_DETECTED") {
-        res.json({
-          text: `⚠️ **Phát hiện mã sai định dạng (bắt đầu bằng 'AQ.')**
-
-Mã bạn đang điền có vẻ là **Mã ủy quyền (Authorization Code)** chứ không phải là **API Key**.
-
-**Cách khắc phục cực kỳ đơn giản (Không cần liên kết thẻ thanh toán / Billing):**
-1. Nhấp vào nút **Settings** (hình bánh răng ở góc dưới bên trái màn hình AI Studio Build này) -> Chọn mục **Secrets** hoặc **Environment Variables**.
-2. Truy cập vào trang quản lý API Key của Google AI Studio (https://aistudio.google.com).
-3. Nhấp vào nút **Create API Key**.
-4. **BƯỚC QUAN TRỌNG:** Ở ô chọn dự án (Project) trong hộp thoại, bạn nhấp vào menu xổ xuống và chọn **\`+ Create project\`** (Tạo dự án mới) thay vì chọn các dự án cũ đã có sẵn như "chatbot".
-5. Nhấp nút **Create key** (Tạo khóa).
-6. Sao chép chuỗi mã vừa được tạo (Chuỗi này **BẮT BUỘC** phải bắt đầu bằng chữ **\`AIzaSy...\`**).
-7. Quay lại đây, dán mã \`AIzaSy...\` đó vào ô giá trị \`GEMINI_API_KEY\` trong Secrets và nhấn **Save** để lưu lại.
-
-Hệ thống sẽ hoạt động ngay lập tức sau khi bạn lưu khóa chính xác! ✨`,
-          mock: true
-        });
-        return;
-      }
-
       if (keyError.message === "INVALID_FORMAT") {
         res.json({
           text: `⚠️ **API Key không đúng định dạng!**
 
-Mã API Key của Google Gemini **bắt buộc phải bắt đầu bằng 'AIzaSy'** (khoảng 39 ký tự). 
+Mã API Key của Google Gemini **bắt buộc phải bắt đầu bằng 'AIzaSy' hoặc 'AQ.'** (khoảng 39 ký tự trở lên). 
 
-Vui lòng tạo một API Key mới bằng cách chọn **Create project** (Tạo dự án mới) trong Google AI Studio và sao chép mã đó dán lại vào phần Secrets nhé!`,
+Vui lòng tạo một API Key mới bằng cách chọn **Create project** (Tạo dự án mới) trong Google AI Studio và sao chép mã đó dán lại vào phần Secrets/Environment Variables nhé!`,
           mock: true
         });
         return;
@@ -167,7 +144,7 @@ Keep safety rules in mind: speak only about high school physics/science and UrLa
       res.json({
         text: `⚠️ **Lỗi API Key không hợp lệ từ máy chủ Google!**
 
-Khóa bạn nhập bắt đầu bằng \`AIzaSy\` nhưng Google báo lỗi là không hợp lệ (có thể khóa đã bị xóa, bị vô hiệu hóa hoặc gõ thiếu ký tự).
+Khóa bạn nhập bắt đầu bằng \`AIzaSy\` hoặc \`AQ.\` nhưng Google báo lỗi là không hợp lệ (có thể khóa đã bị xóa, bị vô hiệu hóa, gõ thiếu ký tự hoặc chưa được liên kết thanh toán nếu bắt buộc).
 
 Vui lòng tạo một API Key mới bằng cách chọn **Create project** (Tạo dự án mới) trong Google AI Studio và thử lại nhé!`,
         mock: true
