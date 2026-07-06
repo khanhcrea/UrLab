@@ -33,6 +33,36 @@ function getGeminiClient(): GoogleGenAI {
   return aiClient;
 }
 
+// Reusable function to call generateContent with automatic 3-time retry for 503 Overloaded errors
+async function generateContentWithRetry(
+  ai: GoogleGenAI,
+  params: Parameters<typeof ai.models.generateContent>[0],
+  maxRetries = 3,
+  delayMs = 1000
+): Promise<ReturnType<typeof ai.models.generateContent>> {
+  let attempt = 0;
+  while (true) {
+    try {
+      attempt++;
+      return await ai.models.generateContent(params);
+    } catch (error: any) {
+      const is503 = 
+        error.status === 503 || 
+        error.statusCode === 503 || 
+        (error.message && error.message.includes("503")) ||
+        (error.message && error.message.toLowerCase().includes("overloaded")) ||
+        (error.message && error.message.toLowerCase().includes("service unavailable"));
+
+      if (is503 && attempt < maxRetries) {
+        console.warn(`[Gemini API] Attempt ${attempt} failed with 503/Overloaded. Retrying in ${delayMs * attempt}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, delayMs * attempt));
+        continue;
+      }
+      throw error;
+    }
+  }
+}
+
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", time: new Date().toISOString() });
 });
@@ -117,8 +147,8 @@ Keep safety rules in mind: speak only about high school physics/science and UrLa
       parts: [{ text: message }]
     });
 
-    const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
+    const response = await generateContentWithRetry(ai, {
+      model: "models/gemini-1.5-flash",
       contents: formattedContents,
       config: {
         systemInstruction: systemInstruction,
@@ -268,8 +298,8 @@ app.post(["/api/quiz", "/quiz"], async (req, res) => {
 
     const topicName = topicLabels[topicId] || topicLabels.pendulum;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+    const response = await generateContentWithRetry(ai, {
+      model: "models/gemini-1.5-flash",
       contents: [
         {
           role: "user",
