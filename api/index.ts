@@ -148,7 +148,7 @@ Keep safety rules in mind: speak only about high school physics/science and UrLa
     });
 
     const response = await generateContentWithRetry(ai, {
-      model: "models/gemini-1.5-flash",
+      model: "gemini-3.5-flash",
       contents: formattedContents,
       config: {
         systemInstruction: systemInstruction,
@@ -299,7 +299,7 @@ app.post(["/api/quiz", "/quiz"], async (req, res) => {
     const topicName = topicLabels[topicId] || topicLabels.pendulum;
 
     const response = await generateContentWithRetry(ai, {
-      model: "models/gemini-1.5-flash",
+      model: "gemini-3.5-flash",
       contents: [
         {
           role: "user",
