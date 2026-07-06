@@ -118,7 +118,7 @@ Keep safety rules in mind: speak only about high school physics/science and UrLa
     });
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: "gemini-1.5-flash",
       contents: formattedContents,
       config: {
         systemInstruction: systemInstruction,
