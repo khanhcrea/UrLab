@@ -8,10 +8,8 @@ dotenv.config();
 const app = express();
 const PORT = 3000;
 
-// JSON request body parser
 app.use(express.json());
 
-// Lazy-initialized Gemini client
 let lastApiKey: string | null = null;
 let aiClient: GoogleGenAI | null = null;
 
@@ -38,12 +36,10 @@ function getGeminiClient(): GoogleGenAI {
   return aiClient;
 }
 
-// Health Check
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", time: new Date().toISOString() });
 });
 
-// Chat API Endpoint for AI Physics Tutor
 app.post(["/api/chat", "/chat"], async (req, res) => {
   try {
     const { message, history } = req.body;
@@ -69,7 +65,6 @@ Vui lòng tạo một API Key mới bằng cách chọn **Create project** (Tạ
         return;
       }
 
-      // Return a graceful educational response if the API key is not configured yet
       res.json({
         text: `Chào bạn! Tôi là **UrLab Physics Tutor**. Hiện tại API Key của Gemini chưa được cấu hình đầy đủ trên Workspace của hệ thống. 
 
@@ -87,7 +82,6 @@ Tuy nhiên, tôi vẫn có thể giải đáp các nguyên lý vật lý cho b�
       return;
     }
 
-    // System instruction to guide the AI to be an excellent, patient, 11th-grade Physics teacher
     const systemInstruction = `You are "UrLab Tutor" - an encouraging, friendly, and highly visual AI Physics Tutor for 11th-grade students.
 Your target audience is high school students who find physics dry or difficult.
 Use clear, highly visual metaphors (like playground swings, water ripples, laser beams, rainbow colors) to explain equations and physical concepts.
@@ -121,7 +115,6 @@ Keep safety rules in mind: speak only about high school physics/science and UrLa
         });
       }
     }
-    // Add current user message
     formattedContents.push({
       role: "user",
       parts: [{ text: message }]
@@ -155,12 +148,10 @@ Vui lòng tạo một API Key mới bằng cách chọn **Create project** (Tạ
   }
 });
 
-// AI Physics Quiz API Endpoint
 app.post(["/api/quiz", "/quiz"], async (req, res) => {
   const { topic } = req.body;
   const topicId = topic || "pendulum";
 
-  // Predefined high-quality physical quiz questions for full local offline support or when API Key is missing
   const mockQuizQuestions: Record<string, Array<{ question: string, options: string[], correctAnswer: number, explanation: string }>> = {
     pendulum: [
       {
@@ -265,7 +256,6 @@ app.post(["/api/quiz", "/quiz"], async (req, res) => {
     try {
       ai = getGeminiClient();
     } catch (keyError) {
-      // Graceful fallback to rich local questions when Gemini API is not configured
       const questions = mockQuizQuestions[topicId] || mockQuizQuestions.pendulum;
       const randomIndex = Math.floor(Math.random() * questions.length);
       res.json({ ...questions[randomIndex], mock: true });
@@ -326,7 +316,6 @@ app.post(["/api/quiz", "/quiz"], async (req, res) => {
     }
   } catch (error: any) {
     console.error("Gemini Quiz API Error:", error);
-    // Return a random mock question if any API or parsing error occurs
     const questions = mockQuizQuestions[topicId] || mockQuizQuestions.pendulum;
     const randomIndex = Math.floor(Math.random() * questions.length);
     res.json(questions[randomIndex]);
@@ -334,7 +323,6 @@ app.post(["/api/quiz", "/quiz"], async (req, res) => {
 });
 
 
-// Configure Vite middleware or serve static built files
 async function setupViteOrStatic() {
   if (process.env.NODE_ENV !== "production") {
     console.log("Starting server in development mode with Vite middleware...");

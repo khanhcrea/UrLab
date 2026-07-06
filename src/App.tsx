@@ -1,13 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import { useState, useEffect } from "react";
 import Header from "./components/Header";
 import HomeView from "./components/HomeView";
@@ -26,7 +16,6 @@ export default function App() {
   const [tab, setTab] = useState<"home" | "lab">("home");
   const [activeExperiment, setActiveExperiment] = useState<"pendulum" | "wave" | "spring" | "light">("pendulum");
 
-  // Physics Simulation States
   const [pendulumParams, setPendulumParams] = useState<PendulumParams>({
     length: 1.5,
     gravity: 9.8,
@@ -59,13 +48,10 @@ export default function App() {
     damping: 1.0,
   });
 
-  // Notebook Saved Observations
   const [observations, setObservations] = useState<SavedObservation[]>([]);
 
-  // Right-Panel Section Navigation State within Lab Space
   const [rightPanelTab, setRightPanelTab] = useState<"formulas" | "quiz" | "notebook" | "theory">("formulas");
 
-  // Fetch saved observations on mount
   useEffect(() => {
     const saved = localStorage.getItem("urlab_observations");
     if (saved) {
@@ -111,14 +97,11 @@ export default function App() {
     const updated = [newObs, ...observations];
     setObservations(updated);
     localStorage.setItem("urlab_observations", JSON.stringify(updated));
-    
-    // Switch right panel to notebook view so they can see their saved item immediately
     setRightPanelTab("notebook");
   };
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800">
-      {/* Universal Header Navigation */}
       <Header
         currentTab={tab}
         setTab={setTab}
@@ -133,14 +116,11 @@ export default function App() {
         }
       />
 
-      {/* Main content display based on current tab state */}
       <main className="flex-1">
         {tab === "home" ? (
           <HomeView onEnterLab={handleEnterLab} />
         ) : (
-          /* Lab Space Container with Responsive Layout */
           <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-            {/* Inner Subheader tabs to switch active physics simulations quickly inside Lab */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5 mb-8 pb-5 border-b border-slate-200">
               <div className="flex bg-slate-200/60 p-1.5 rounded-xl border border-slate-300/40 flex-wrap gap-1">
                 <button
@@ -192,8 +172,6 @@ export default function App() {
                   Giao Thoa Ánh Sáng (Chương 2)
                 </button>
               </div>
-
-              {/* Lab info breadcrumb */}
               <div className="text-sm text-slate-600 font-semibold bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
                 {activeExperiment === "pendulum" ? (
                   <span>Khảo sát: Dao động tuần hoàn của con lắc đơn chịu lực kéo về</span>
@@ -206,11 +184,7 @@ export default function App() {
                 )}
               </div>
             </div>
-
-            {/* Split Screen Panel Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-              
-              {/* Left Column: Simulation canvas & specific sliders */}
               <div className="lg:col-span-7">
                 {activeExperiment === "pendulum" ? (
                   <PendulumCanvas
@@ -238,11 +212,7 @@ export default function App() {
                   />
                 )}
               </div>
-
-              {/* Right Column: Tabbed Dynamic Formula box, notebook logs, theory tutorials */}
               <div className="lg:col-span-5 flex flex-col gap-6">
-                
-                {/* Custom layout switcher for right workspace tabs */}
                 <div className="flex bg-slate-200/60 p-1.5 rounded-2xl border border-slate-200 text-xs sm:text-sm font-bold flex-wrap gap-1 sm:gap-0">
                   <button
                     id="right-tab-formulas"
@@ -298,8 +268,6 @@ export default function App() {
                     Lý thuyết
                   </button>
                 </div>
-
-                {/* Switch Right Panel Content */}
                 {rightPanelTab === "formulas" && (
                   <FormulaBox
                     experimentId={activeExperiment}
@@ -437,8 +405,6 @@ export default function App() {
           </div>
         )}
       </main>
-
-      {/* Floating AI Physics Tutor Widget */}
       <ChatBot />
     </div>
   );

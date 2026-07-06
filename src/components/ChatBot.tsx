@@ -16,7 +16,6 @@ export default function ChatBot() {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Auto scroll to latest message
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
@@ -28,7 +27,6 @@ export default function ChatBot() {
     const query = inputValue.trim();
     if (!query) return;
 
-    // Add User Message
     const userMsg: ChatMessage = {
       id: `user-${Date.now()}`,
       role: "user",
@@ -41,7 +39,6 @@ export default function ChatBot() {
     setIsLoading(true);
 
     try {
-      // Map message history formatted for Gemini
       const history = messages
         .filter((m) => m.id !== "welcome")
         .map((m) => ({
@@ -101,18 +98,15 @@ export default function ChatBot() {
     }
   };
 
-  // Utility to convert raw LaTeX expressions to beautiful readable Unicode
   const cleanMathExpressions = (text: string): string => {
     if (!text) return "";
     let clean = text;
 
-    // Clean LaTeX math delimiters
     clean = clean.replace(/\$\$(.*?)\$\$/g, "$1");
     clean = clean.replace(/\$(.*?)\$/g, "$1");
     clean = clean.replace(/\\\[(.*?)\\\]/g, "$1");
     clean = clean.replace(/\\\((.*?)\\\)/g, "$1");
 
-    // Replace common LaTeX symbols with nice Unicode ones
     clean = clean.replace(/\\pi/g, "π");
     clean = clean.replace(/\\lambda/g, "λ");
     clean = clean.replace(/\\sqrt/g, "√");
@@ -123,29 +117,24 @@ export default function ChatBot() {
     clean = clean.replace(/\\times/g, "×");
     clean = clean.replace(/\\pm/g, "±");
 
-    // Replace fractions like \frac{a}{b} with (a/b)
     const fracRegex = /\\frac\s*\{(.*?)\}\s*\{(.*?)\}/g;
     while (fracRegex.test(clean)) {
       clean = clean.replace(fracRegex, "($1 / $2)");
     }
 
-    // Clean remaining braces from fraction cleanup or other LaTeX commands
     const sqrtBracesRegex = /√\s*\{(.*?)\}/g;
     while (sqrtBracesRegex.test(clean)) {
       clean = clean.replace(sqrtBracesRegex, "√($1)");
     }
 
-    // General curly braces cleaning for simple subscripts
     clean = clean.replace(/_\{(.*?)\}/g, "$1");
 
     return clean;
   };
 
-  // Safe markdown bullet list parsing for a clean formatted layout
   const formatMessageText = (text: string) => {
     const cleanedText = cleanMathExpressions(text);
     return cleanedText.split("\n").map((line, index) => {
-      // bold **text**
       const boldRegex = /\*\*(.*?)\*\*/g;
       const parts = [];
       let lastIdx = 0;
@@ -174,10 +163,8 @@ export default function ChatBot() {
 
   return (
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
-      {/* Floating Widget Panel */}
       {isOpen && (
         <div className="mb-4 w-96 max-w-[calc(100vw-2rem)] h-[480px] bg-white rounded-2xl border border-slate-200 shadow-2xl flex flex-col overflow-hidden transition-all duration-300">
-          {/* Panel Header */}
           <div className="bg-gradient-to-r from-blue-600 to-teal-500 p-4 text-white flex items-center justify-between shadow-md">
             <div className="flex items-center gap-2">
               <div className="bg-white/10 p-1.5 rounded-lg">
@@ -206,7 +193,6 @@ export default function ChatBot() {
             </div>
           </div>
 
-          {/* Messages Flow Area */}
           <div className="flex-1 overflow-y-auto p-4 bg-slate-50 space-y-4">
             {messages.map((msg) => (
               <div
@@ -242,7 +228,6 @@ export default function ChatBot() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Form Message input */}
           <form onSubmit={handleSendMessage} className="p-3 border-t border-slate-150 bg-white flex gap-2">
             <input
               id="chatbot-input-field"
@@ -264,7 +249,6 @@ export default function ChatBot() {
         </div>
       )}
 
-      {/* Floating Circle Button */}
       <button
         id="chatbot-floating-toggle"
         onClick={() => setIsOpen(!isOpen)}

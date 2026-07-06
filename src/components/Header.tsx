@@ -10,7 +10,6 @@ export default function Header({ currentTab, setTab, activeExperimentTitle }: He
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-md">
       <div className="mx-auto flex max-w-7xl h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
-        {/* Logo and Brand */}
         <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => setTab("home")}>
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-600 to-teal-500 shadow-md text-white shadow-blue-500/20">
             <Beaker className="h-5 w-5" />
@@ -25,7 +24,6 @@ export default function Header({ currentTab, setTab, activeExperimentTitle }: He
           </div>
         </div>
 
-        {/* Dynamic Context Breadcrumb if in Lab */}
         {currentTab === "lab" && activeExperimentTitle && (
           <div className="hidden md:flex items-center gap-2 text-base text-slate-500">
             <span className="h-2 w-2 rounded-full bg-teal-500 animate-pulse" />
@@ -33,7 +31,6 @@ export default function Header({ currentTab, setTab, activeExperimentTitle }: He
           </div>
         )}
 
-        {/* Navigation Tabs */}
         <nav className="flex items-center gap-2">
           <button
             id="nav-home-btn"
