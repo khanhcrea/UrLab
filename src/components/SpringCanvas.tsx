@@ -501,7 +501,7 @@ export default function SpringCanvas({ params, setParams, onSaveObservation }: S
         </div>
 
         {/* Energy bar overlays */}
-        <div className="bg-slate-900/90 p-4">
+        <div className="bg-slate-900/90 border-t border-slate-800/80 p-4">
           <h4 className="text-xs font-bold text-slate-350 mb-2 flex items-center gap-1.5">
             <Activity className="h-3.5 w-3.5 text-blue-400" />
             Biểu Đồ Năng Lượng Dao Động (Oscillator Energy)

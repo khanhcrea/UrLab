@@ -113,7 +113,7 @@ export default function PendulumCanvas({ params, setParams, onSaveObservation }:
       const pivotY = 60;
       
       // Scaling factor: map length L (meters) to pixels
-      const pixelLength = L * 100;
+      const pixelLength = L * 85;
       
       // Bob Coordinates
       const bobX = pivotX + pixelLength * Math.sin(stateRef.current.theta);
@@ -267,7 +267,7 @@ export default function PendulumCanvas({ params, setParams, onSaveObservation }:
       if (showCoordinateAxis) {
         ctx.save();
 
-        const axisY = height - 25;
+        const axisY = height - 45;
         const theta0Rad = Math.abs((params.initialAngle * Math.PI) / 180);
         const pixelAmplitude = pixelLength * Math.sin(theta0Rad);
         const currentBobX = pivotX + pixelLength * Math.sin(stateRef.current.theta);
@@ -436,7 +436,7 @@ export default function PendulumCanvas({ params, setParams, onSaveObservation }:
 
     const pivotX = rect.width / 2;
     const pivotY = 60;
-    const pixelLength = params.length * 100;
+    const pixelLength = params.length * 85;
 
     const bobX = pivotX + pixelLength * Math.sin(stateRef.current.theta);
     const bobY = pivotY + pixelLength * Math.cos(stateRef.current.theta);
@@ -592,7 +592,7 @@ export default function PendulumCanvas({ params, setParams, onSaveObservation }:
         </div>
 
         {/* Dynamic Energy Bar Overlay at bottom */}
-        <div className="bg-slate-900/90 p-4">
+        <div className="bg-slate-900/90 border-t border-slate-800/80 p-4">
           <h4 className="text-xs font-bold text-slate-350 mb-2 flex items-center gap-1.5">
             <Activity className="h-3.5 w-3.5 text-blue-400" />
             Biểu Đồ Bảo Toàn Cơ Năng (Mechanical Energy)
