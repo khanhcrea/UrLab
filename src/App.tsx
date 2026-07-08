@@ -133,7 +133,7 @@ export default function App() {
                   }`}
                 >
                   <Beaker className="h-4.5 w-4.5" />
-                  Con Lắc Đơn (Chương 1)
+                  Con Lắc Đơn (Dao động)
                 </button>
                 <button
                   id="tab-select-spring"
@@ -145,7 +145,7 @@ export default function App() {
                   }`}
                 >
                   <Activity className="h-4.5 w-4.5 text-indigo-550" />
-                  Con Lắc Lò Xo (Chương 1)
+                  Con Lắc Lò Xo (Dao động)
                 </button>
                 <button
                   id="tab-select-wave"
@@ -157,7 +157,7 @@ export default function App() {
                   }`}
                 >
                   <Waves className="h-4.5 w-4.5" />
-                  Giao Thoa Sóng (Chương 2)
+                  Giao Thoa Sóng (Sóng)
                 </button>
                 <button
                   id="tab-select-light"
@@ -169,7 +169,7 @@ export default function App() {
                   }`}
                 >
                   <Sparkles className="h-4.5 w-4.5 text-violet-555" />
-                  Giao Thoa Ánh Sáng (Chương 2)
+                  Giao Thoa Ánh Sáng (Sóng)
                 </button>
               </div>
               <div className="text-sm text-slate-600 font-semibold bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
@@ -178,7 +178,7 @@ export default function App() {
                 ) : activeExperiment === "spring" ? (
                   <span>Khảo sát: Dao động điều hòa của con lắc lò xo treo thẳng đứng</span>
                 ) : activeExperiment === "light" ? (
-                  <span>Khảo sát: Giao thoa ánh sáng qua khe Young (2 chùm đơn sắc khác nhau)</span>
+                  <span>Khảo sát: Giao thoa ánh sáng qua khe Young (Bước sóng đơn sắc λ)</span>
                 ) : (
                   <span>Khảo sát: Hiện tượng truyền sóng cơ và giao thoa sóng 2 chiều</span>
                 )}
@@ -365,12 +365,9 @@ export default function App() {
                           </p>
                         </div>
                         <div>
-                          <h4 className="font-bold text-slate-900 text-base">3. Giao thoa 2 chùm ánh sáng khác bước sóng</h4>
+                          <h4 className="font-bold text-slate-900 text-base">3. Điều kiện để có giao thoa ánh sáng</h4>
                           <p className="mt-1.5">
-                            Khi chiếu đồng thời cả 2 bức xạ đơn sắc λ₁ và λ₂, trên màn sẽ hiển thị đồng thời hai hệ vân giao thoa độc lập. Tại vị trí vân sáng trùng nhau (cực đại trùng):
-                            <br />
-                            <code className="bg-slate-100 px-2 py-1 rounded font-mono text-slate-850 block mt-1.5">x_s1 = x_s2  ⇒  k₁ · λ₁ = k₂ · λ₂</code>
-                            Vị trí trùng nhau này tạo nên vạch màu hỗn hợp (pha trộn màu sắc cộng tính của hai bức xạ đơn sắc).
+                            Nguồn sáng phát ra phải là hai nguồn sáng kết hợp: có cùng tần số (cùng bước sóng) và có hiệu số pha không đổi theo thời gian. Trong thí nghiệm khe Young, ánh sáng từ một nguồn đơn sắc đi qua hai khe hẹp trở thành hai nguồn kết hợp lý tưởng.
                           </p>
                         </div>
                       </div>
@@ -405,7 +402,18 @@ export default function App() {
           </div>
         )}
       </main>
-      <ChatBot />
+      <ChatBot
+        activeExperiment={activeExperiment}
+        params={
+          activeExperiment === "pendulum"
+            ? pendulumParams
+            : activeExperiment === "spring"
+            ? springParams
+            : activeExperiment === "light"
+            ? lightParams
+            : waveParams
+        }
+      />
     </div>
   );
 }

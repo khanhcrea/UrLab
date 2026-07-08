@@ -19,7 +19,7 @@ export default function PendulumCanvas({ params, setParams, onSaveObservation }:
   // Custom View Options
   const [showVectors, setShowVectors] = useState(true);
   const [showProtractor, setShowProtractor] = useState(true);
-  const [trail, setTrail] = useState<{ x: number; y: number; opacity: number }[]>([]);
+  const trailRef = useRef<{ x: number; y: number; opacity: number }[]>([]);
 
   // Refs for animation loop to avoid dependency lag
   const stateRef = useRef({
@@ -41,7 +41,7 @@ export default function PendulumCanvas({ params, setParams, onSaveObservation }:
       stateRef.current.omega = 0;
       setTheta((params.initialAngle * Math.PI) / 180);
       setOmega(0);
-      setTrail([]);
+      trailRef.current = [];
     }
   }, [params.initialAngle, params.length, params.gravity]);
 
@@ -55,12 +55,23 @@ export default function PendulumCanvas({ params, setParams, onSaveObservation }:
     let animationFrameId: number;
     let lastTime = performance.now();
 
+    // High-DPI (Retina) scaling setup
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    
+    // Set actual buffer size scaled to DPR
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+
+    const width = rect.width;   // CSS width (always 480)
+    const height = rect.height; // CSS height (always 360)
+
     const updateSimulation = (now: number) => {
       // Calculate delta time
       let dt = (now - lastTime) / 1000;
       lastTime = now;
 
-      // Cap dt to prevent huge jumps
+      // Cap dt to prevent huge jumps (e.g. background tab resume)
       if (dt > 0.1) dt = 0.1;
 
       const L = params.length;
@@ -68,41 +79,49 @@ export default function PendulumCanvas({ params, setParams, onSaveObservation }:
       const m = params.mass;
       const b = params.damping; // damping coefficient
 
-      // 1. Physics Step (if playing and not dragging)
+      // 1. Physics Step with sub-stepping for extreme smoothness and stability
       if (stateRef.current.isPlaying && !stateRef.current.dragging) {
-        // Equation of motion: alpha = -(g/L) * sin(theta) - (damping / m) * omega
-        const alpha = -(g / L) * Math.sin(stateRef.current.theta) - (b / m) * stateRef.current.omega;
-        
-        // Euler-Cromer integration (stable for oscillatory systems)
-        stateRef.current.omega += alpha * dt;
-        stateRef.current.theta += stateRef.current.omega * dt;
+        const fixedDt = 0.001; // 1ms sub-steps for ultra-high precision
+        let accumulator = dt;
+        if (accumulator > 0.1) accumulator = 0.1;
+
+        while (accumulator >= fixedDt) {
+          // Equation of motion: alpha = -(g/L) * sin(theta) - (damping / m) * omega
+          const alpha = -(g / L) * Math.sin(stateRef.current.theta) - (b / m) * stateRef.current.omega;
+          
+          // Euler-Cromer integration (stable for oscillatory systems)
+          stateRef.current.omega += alpha * fixedDt;
+          stateRef.current.theta += stateRef.current.omega * fixedDt;
+          accumulator -= fixedDt;
+        }
 
         // Sync with React states for UI indicators
         setTheta(stateRef.current.theta);
         setOmega(stateRef.current.omega);
       }
 
-      // 2. Clear canvas
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // Reset and scale context for Drawing
+      ctx.resetTransform();
+      ctx.scale(dpr, dpr);
+
+      // Clear canvas using unscaled coordinates
+      ctx.clearRect(0, 0, width, height);
 
       // Pivot position (centered horizontally near the top)
-      const pivotX = canvas.width / 2;
+      const pivotX = width / 2;
       const pivotY = 60;
       
       // Scaling factor: map length L (meters) to pixels
-      // Let 1.0 meter = 120 pixels
       const pixelLength = L * 100;
       
       // Bob Coordinates
       const bobX = pivotX + pixelLength * Math.sin(stateRef.current.theta);
       const bobY = pivotY + pixelLength * Math.cos(stateRef.current.theta);
 
-      // Add to trail
+      // Add to trail (stored in mutable ref to avoid React state triggers)
       if (stateRef.current.isPlaying && !stateRef.current.dragging && Math.abs(stateRef.current.omega) > 0.05) {
-        setTrail((prev) => {
-          const newTrail = [{ x: bobX, y: bobY, opacity: 1.0 }, ...prev];
-          return newTrail.slice(0, 20).map((t, idx) => ({ ...t, opacity: 1.0 - idx * 0.05 }));
-        });
+        const newTrail = [{ x: bobX, y: bobY, opacity: 1.0 }, ...trailRef.current];
+        trailRef.current = newTrail.slice(0, 20).map((t, idx) => ({ ...t, opacity: 1.0 - idx * 0.05 }));
       }
 
       // Draw Protractor / Angle Grid background
@@ -147,7 +166,7 @@ export default function PendulumCanvas({ params, setParams, onSaveObservation }:
 
       // Draw Trail
       ctx.save();
-      trail.forEach((point) => {
+      trailRef.current.forEach((point) => {
         ctx.fillStyle = `rgba(20, 184, 166, ${point.opacity * 0.25})`;
         ctx.beginPath();
         ctx.arc(point.x, point.y, 6, 0, 2 * Math.PI);
@@ -177,7 +196,7 @@ export default function PendulumCanvas({ params, setParams, onSaveObservation }:
       ctx.stroke();
       ctx.restore();
 
-      // Draw Pendulum Bob (Size proportional to cube root of mass to represent physical size scale)
+      // Draw Pendulum Bob
       ctx.save();
       const bobRadius = 12 + Math.cbrt(m) * 6;
       const gradient = ctx.createRadialGradient(
@@ -280,7 +299,7 @@ export default function PendulumCanvas({ params, setParams, onSaveObservation }:
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
-  }, [params, showVectors, showProtractor, trail]);
+  }, [params, showVectors, showProtractor]);
 
   // Handle Drag-and-drop to pull the pendulum bob
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -290,7 +309,7 @@ export default function PendulumCanvas({ params, setParams, onSaveObservation }:
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    const pivotX = canvas.width / 2;
+    const pivotX = rect.width / 2;
     const pivotY = 60;
     const pixelLength = params.length * 100;
 
@@ -315,7 +334,7 @@ export default function PendulumCanvas({ params, setParams, onSaveObservation }:
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    const pivotX = canvas.width / 2;
+    const pivotX = rect.width / 2;
     const pivotY = 60;
 
     // Calculate new angle relative to vertical downward line (dx, dy)
@@ -381,7 +400,7 @@ export default function PendulumCanvas({ params, setParams, onSaveObservation }:
     stateRef.current.omega = 0;
     setTheta((params.initialAngle * Math.PI) / 180);
     setOmega(0);
-    setTrail([]);
+    trailRef.current = [];
   };
 
   // Period T = 2 * pi * sqrt(L/g)

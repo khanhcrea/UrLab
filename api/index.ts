@@ -69,69 +69,177 @@ app.get("/api/health", (req, res) => {
 
 app.post(["/api/chat", "/chat"], async (req, res) => {
   try {
-    const { message, history } = req.body;
+    const { message, history, screenState } = req.body;
     
     if (!message || typeof message !== "string") {
       res.status(400).json({ error: "Message parameter is required and must be a string." });
       return;
     }
 
+    // Set headers for Server-Sent Events (SSE)
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no"); // Prevent buffering by reverse proxies (Nginx, Vercel, Cloud Run, etc.)
+    res.flushHeaders(); // Establish connection immediately
+
+    // Helper function to stream plain text for fallbacks and errors with typed effect
+    const streamFallbackText = async (text: string) => {
+      const words = text.split(" ");
+      let currentChunk = "";
+      for (let i = 0; i < words.length; i++) {
+        currentChunk += (i === 0 ? "" : " ") + words[i];
+        if (currentChunk.length > 20 || i === words.length - 1) {
+          res.write(`data: ${JSON.stringify({ text: currentChunk })}\n\n`);
+          currentChunk = "";
+          await new Promise((resolve) => setTimeout(resolve, 15)); // fast simulated typing
+        }
+      }
+      res.write("data: [DONE]\n\n");
+      res.end();
+    };
+
     let ai;
     try {
       ai = getGeminiClient();
     } catch (keyError: any) {
       if (keyError.message === "INVALID_FORMAT") {
-        res.json({
-          text: `⚠️ **API Key không đúng định dạng!**
+        await streamFallbackText(`⚠️ **API Key không đúng định dạng!**
 
 Mã API Key của Google Gemini **bắt buộc phải bắt đầu bằng 'AIzaSy' hoặc 'AQ'** (khoảng 39 ký tự trở lên). 
 
-Vui lòng tạo một API Key mới bằng cách chọn **Create project** (Tạo dự án mới) trong Google AI Studio và sao chép mã đó dán lại vào phần Secrets/Environment Variables nhé!`,
-          mock: true
-        });
+Vui lòng tạo một API Key mới bằng cách chọn **Create project** (Tạo dự án mới) trong Google AI Studio và sao chép mã đó dán lại vào phần Secrets/Environment Variables nhé!`);
         return;
       }
 
-      res.json({
-        text: `Chào bạn! Tôi là **UrLab Physics Tutor**. Hiện tại API Key của Gemini chưa được cấu hình đầy đủ trên Workspace của hệ thống. 
+      // Richer fallback answer based on current screen state even if offline/no key!
+      let fallbackText = `Chào bạn! Tôi là **UrLab Physics Tutor**. Hiện tại API Key của Gemini chưa được cấu hình đầy đủ trên Workspace của hệ thống. 
 
-Tuy nhiên, tôi vẫn có thể giải đáp các nguyên lý vật lý cho bạn một cách trực quan:
-1. **Chu kỳ của con lắc đơn**: Xác định bởi công thức **T = 2π·√(L/g)**. Khi tăng chiều dài dây treo L, chu kỳ T sẽ dài ra (con lắc dao động chậm lại).
-2. **Chu kỳ con lắc lò xo**: Xác định bởi công thức **T = 2π·√(m/k)**. Khi tăng khối lượng vật m thì chu kỳ T tăng, khi tăng độ cứng của lò xo k thì lò xo kéo kéo dứt khoát hơn nên chu kỳ T giảm.
-3. **Giao thoa ánh sáng khe Young**: Khoảng vân **i = (λ·D) / a**. 
-   - Nếu tăng bước sóng λ (ví dụ chuyển từ ánh sáng Lục sang Đỏ) hoặc kéo màn ra xa (tăng D) thì hệ vân dãn rộng ra (khoảng vân i tăng).
-   - Nếu dịch hai khe ra xa nhau (tăng a) thì các vân xếp khít lại gần nhau hơn (khoảng vân i giảm).
-   - Với hai chùm sáng bước sóng khác nhau, vị trí vân sáng trùng nhau tuân theo điều kiện: **k1·λ1 = k2·λ2**.
+Tuy nhiên, tôi vẫn có thể hỗ trợ bạn tính toán trực quan dựa trên các số liệu thực tế trên màn hình của bạn:`;
 
-*Hãy cấu hình GEMINI_API_KEY trong Settings > Secrets để bắt đầu trò chuyện tương tác trực tuyến cùng AI nhé!*`,
-        mock: true
-      });
+      if (screenState) {
+        const { activeExperiment, params } = screenState;
+        if (activeExperiment === "pendulum" && params) {
+          const L = params.length || 1.5;
+          const g = params.gravity || 9.8;
+          const T = (2 * Math.PI * Math.sqrt(L / g)).toFixed(3);
+          fallbackText += `\n\n**🔍 Số liệu hiện tại của bạn (Con lắc đơn):**
+- Chiều dài dây treo L = **${L} m**
+- Gia tốc trọng trường g = **${g} m/s²**
+- Khối lượng quả nặng m = **${params.mass || 1.0} kg**
+- Hệ số cản b = **${params.damping || 0.05}**
+- 👉 **Chu kỳ dao động lý thuyết tính được: T = 2π·√(L/g) ≈ ${T} giây.**`;
+        } else if (activeExperiment === "spring" && params) {
+          const k = params.k || 40;
+          const m = params.mass || 1.0;
+          const T = (2 * Math.PI * Math.sqrt(m / k)).toFixed(3);
+          fallbackText += `\n\n**🔍 Số liệu hiện tại của bạn (Con lắc lò xo):**
+- Độ cứng lò xo k = **${k} N/m**
+- Khối lượng vật nặng m = **${m} kg**
+- Ly độ ban đầu x0 = **${params.initialX || 6} cm**
+- 👉 **Chu kỳ dao động lý thuyết tính được: T = 2π·√(m/k) ≈ ${T} giây.**`;
+        } else if (activeExperiment === "wave" && params) {
+          const f = params.frequency || 1.5;
+          const v = params.speed || 100;
+          const lambda = (v / f).toFixed(1);
+          fallbackText += `\n\n**🔍 Số liệu hiện tại của bạn (Giao thoa sóng):**
+- Tần số nguồn f = **${f} Hz** (Chu kỳ T = ${(1/f).toFixed(2)}s)
+- Tốc độ truyền sóng v = **${v} mm/s**
+- Biên độ A = **${params.amplitude || 35} mm**
+- 👉 **Bước sóng lan truyền lý thuyết: λ = v/f ≈ ${lambda} mm.**`;
+        } else if (activeExperiment === "light" && params) {
+          const a = params.a || 1.0;
+          const D = params.D || 2.0;
+          const lambda = params.lambda1 || 650;
+          const i = ((lambda * 1e-9 * D) / (a * 1e-3) * 1e3).toFixed(3);
+          fallbackText += `\n\n**🔍 Số liệu hiện tại của bạn (Giao thoa ánh sáng):**
+- Khoảng cách hai khe a = **${a} mm**
+- Khoảng cách đến màn D = **${D} m**
+- Bước sóng ánh sáng λ = **${lambda} nm**
+- 👉 **Khoảng vân giao thoa lý thuyết: i = (λ·D)/a ≈ ${i} mm.**`;
+        }
+      } else {
+        fallbackText += `\n1. **Chu kỳ của con lắc đơn**: Xác định bởi công thức **T = 2π·√(L/g)**.
+2. **Chu kỳ con lắc lò xo**: Xác định bởi công thức **T = 2π·√(m/k)**.
+3. **Giao thoa ánh sáng khe Young**: Khoảng vân **i = (λ·D) / a**.`;
+      }
+      fallbackText += `\n\n*Hãy cấu hình GEMINI_API_KEY trong Settings > Secrets để mở khóa toàn bộ trí tuệ nhân tạo của Gia sư nhé!*`;
+
+      await streamFallbackText(fallbackText);
       return;
     }
 
-    const systemInstruction = `You are "UrLab Tutor" - an encouraging, friendly, and highly visual AI Physics Tutor for 11th-grade students.
-Your target audience is high school students who find physics dry or difficult.
-Use clear, highly visual metaphors (like playground swings, water ripples, laser beams, rainbow colors) to explain equations and physical concepts.
-Your tone should be warm, patient, and engaging. Avoid long text-heavy blocks; use formatting (bullet points, bold key terms, clear headers) to make concepts digestable.
-Your currently helping them with:
-- Chapter 1: Oscillations (Simple Pendulum, Spring-Mass oscillator, Period, Frequency, Amplitude, Gravity, restoring force).
-- Chapter 2: Waves and Light Waves (Mechanical waves, frequency, wavelength, speed of wave, wave interference, diffraction, Young's double-slit Light interference, fringe width i = lambda * D / a, overlap of two different wavelengths).
+    let stateContext = "";
+    if (screenState) {
+      const { activeExperiment, params } = screenState;
+      stateContext = `\n--- TRẠNG THÁI MÀN HÌNH PHÒNG THÍ NGHIỆM VẬT LÝ HIỆN TẠI CỦA HỌC SINH ---\n`;
+      if (activeExperiment === "pendulum" && params) {
+        stateContext += `Bài học đang mở: Con lắc đơn (Simple Pendulum)
+Số liệu hiện tại trên slider/màn hình của học sinh:
+- Chiều dài dây treo (L): ${params.length} mét (m)
+- Gia tốc trọng trường (g): ${params.gravity} m/s² (ví dụ: Trái Đất là 9.8, Mặt Trăng là 1.62, Sao Mộc là 24.79)
+- Khối lượng vật nặng (m): ${params.mass} kilôgam (kg)
+- Hệ số lực cản môi trường (b): ${params.damping}
+- Góc lệch ban đầu cực đại (theta_0): ${params.initialAngle} độ (°)
 
-CRITICAL FORMULA FORMATTING RULE: 
-- Do NOT use LaTeX math equations (like \\frac, \\sqrt, \\pi, \\lambda, $ or $$ signs) as the student's browser cannot render raw LaTeX equations.
-- Always write equations in a super clean, beautiful, and easy-to-read Unicode layout.
-- For example, write: 
-  * T = 2π·√(L/g)
-  * T = 2π·√(m/k)
-  * i = (λ·D) / a
-  * λ = v / f
-  * f = 1 / T
-  * k1·λ1 = k2·λ2
-- Use normal superscript for powers, like x² or t², instead of x^2. Always keep formulas simple, well-spaced, and highly readable.
+Tính toán lý thuyết tương ứng:
+* Tần số góc omega = √(g/L) ≈ ${Math.sqrt(params.gravity / params.length).toFixed(4)} rad/s
+* Chu kỳ dao động riêng T = 2π * √(L/g) ≈ ${(2 * Math.PI * Math.sqrt(params.length / params.gravity)).toFixed(4)} giây (s)
+* Tần số f = 1/T ≈ ${(1 / (2 * Math.PI * Math.sqrt(params.length / params.gravity))).toFixed(4)} Hz`;
+      } else if (activeExperiment === "spring" && params) {
+        stateContext += `Bài học đang mở: Con lắc lò xo treo thẳng đứng (Spring-Mass System)
+Số liệu hiện tại trên slider/màn hình của học sinh:
+- Độ cứng của lò xo (k): ${params.k} N/m
+- Khối lượng vật nặng (m): ${params.mass} kg
+- Biên độ kéo lệch ban đầu / Ly độ ban đầu (x0): ${params.initialX} cm
+- Hệ số lực cản/ma sát: ${params.damping}
 
-If the student writes in Vietnamese (e.g., "con lắc đơn", "chu kỳ", "giao thoa ánh sáng", "khoảng vân"), reply in clear, friendly Vietnamese. If they write in English, reply in English.
-Keep explanations concise, focused, and always relate the answer back to how they can experiment with variables on their screen (e.g., "Hãy thử thay đổi khoảng cách khe a hoặc bước sóng lambda trên thanh trượt và xem khoảng vân i thay đổi thế nào nhé!").
-Keep safety rules in mind: speak only about high school physics/science and UrLab. If asked unrelated questions, politely guide them back to physics.`;
+Tính toán lý thuyết tương ứng:
+* Tần số góc omega = √(k/m) ≈ ${Math.sqrt(params.k / params.mass).toFixed(4)} rad/s
+* Chu kỳ dao động riêng T = 2π * √(m/k) ≈ ${(2 * Math.PI * Math.sqrt(params.mass / params.k)).toFixed(4)} giây (s)
+* Độ dãn của lò xo ở vị trí cân bằng Δl = (m * g) / k = ${(params.mass * 9.8 / params.k * 100).toFixed(2)} cm (với g = 9.8 m/s²)`;
+      } else if (activeExperiment === "wave" && params) {
+        stateContext += `Bài học đang mở: Hiện tượng truyền sóng & Giao thoa sóng cơ học 2 chiều trên mặt nước (Waves)
+Số liệu hiện tại trên slider/màn hình của học sinh:
+- Tần số nguồn phát (f): ${params.frequency} Hz (chu kỳ dao động T = ${(1 / params.frequency).toFixed(4)} s)
+- Tốc độ truyền sóng (v): ${params.speed} milimét trên giây (mm/s)
+- Biên độ nguồn (A): ${params.amplitude} mm
+- Hệ số hấp thụ/cản sóng của môi trường: ${params.damping}
+
+Tính toán lý thuyết tương ứng:
+* Bước sóng λ = v / f = ${(params.speed / params.frequency).toFixed(2)} mm. Khoảng cách giữa hai ngọn sóng liên tiếp là ${ (params.speed / params.frequency).toFixed(2) } mm.`;
+      } else if (activeExperiment === "light" && params) {
+        stateContext += `Bài học đang mở: Thí nghiệm Giao thoa ánh sáng khe Young (Light Interference)
+Số liệu hiện tại trên slider/màn hình của học sinh:
+- Khoảng cách giữa hai khe hẹp (a): ${params.a} mm
+- Khoảng cách từ mặt phẳng chứa hai khe đến màn quan sát (D): ${params.D} mét (m)
+- Bước sóng của nguồn sáng đơn sắc phát ra (λ): ${params.lambda1} nanômét (nm) (bằng ${params.lambda1 * 1e-3} µm)
+
+Tính toán lý thuyết tương ứng:
+* Khoảng vân i = (λ * D) / a = ${((params.lambda1 * 1e-6 * params.D * 1000) / params.a).toFixed(4)} mm.
+* Có nghĩa là khoảng cách giữa 2 vân sáng kề nhau trên màn đúng bằng ${((params.lambda1 * 1e-6 * params.D * 1000) / params.a).toFixed(4)} mm.
+* Vân sáng bậc k nằm tại x = k * i. Vân tối thứ k nằm tại x = (k - 0.5) * i.`;
+      }
+      stateContext += `\nLưu ý: Bạn hãy chủ động nhắc đến những con số cụ thể này khi học sinh hỏi những câu hỏi có tính chất chung chung hoặc khi muốn hướng dẫn họ thực hành trực tiếp ngay trên màn hình!\n---------------------------------------------------------------\n`;
+    }
+
+    const systemInstruction = `You are "UrLab Tutor" - an expert, encouraging, and highly accurate AI Physics Tutor for 11th-grade students.
+CRITICAL INSTRUCTIONS FOR QUALITY, ACCURACY, AND BREVITY:
+1. DIRECTNESS & NO RAMBLING (ĐÚNG TRỌNG TÂM, KHÔNG LAN MAN): Answer the student's question directly in the very first sentence. Avoid wordy introductions, long preambles, or excessive filler text. Keep answers brief, concise, and highly structured using bullet points or short paragraphs. Do not repeat facts unnecessarily. This maximizes speed and precision!
+2. ABSOLUTE SCIENTIFIC ACCURACY (TRẢ LỜI ĐÚNG KIẾN THỨC VẬT LÝ): Ensure all physics principles, formulas, definitions, and derivations are 100% accurate, precise, and rigorous according to high school physics standards. 
+   - Simple Pendulum (Con lắc đơn): Period T = 2π·√(L/g) is independent of amplitude (for small oscillations) and mass m.
+   - Spring-Mass System (Con lắc lò xo): Period T = 2π·√(m/k). Frequency f = (1/2π)·√(k/m).
+   - Light Waves & Young's Interference (Giao thoa ánh sáng khe Young): Fringe width i = (λ·D) / a. Distance from center to k-th bright fringe is x = k·i. Distance to k-th dark fringe is x = (k + 0.5)·i. 
+   - Mechanical Waves (Sóng cơ): λ = v / f = v·T.
+3. FORMULA FORMATTING RULE: Do NOT use LaTeX math notations (like \\frac, \\sqrt, \\pi, \\lambda, $ or $$) because the interface displays clean plain text / markdown. Always write formulas in clean Unicode:
+   * T = 2π·√(L/g)
+   * T = 2π·√(m/k)
+   * i = (λ·D) / a
+   * λ = v / f
+   * k1·λ1 = k2·λ2
+   * x = k·i
+4. LANGUAGE: If the student writes in Vietnamese, answer in clear, polite, natural, and standard Vietnamese. If in English, answer in English.
+5. INTERACTIVE CONNECTIONS: Relate the explanation directly to how the student can adjust sliders or variables on their screen (e.g., L, m, k, lambda, a, D) to witness the physics phenomenon live in UrLab. Use the actual live measurements/parameters provided in the state section below to personalize the instruction!${stateContext}`;
 
     const formattedContents = [];
     if (history && Array.isArray(history)) {
@@ -147,31 +255,85 @@ Keep safety rules in mind: speak only about high school physics/science and UrLa
       parts: [{ text: message }]
     });
 
-    const response = await generateContentWithRetry(ai, {
-      model: "gemini-3.5-flash",
-      contents: formattedContents,
-      config: {
-        systemInstruction: systemInstruction,
-        temperature: 0.7,
-      }
-    });
-
-    res.json({ text: response.text });
-  } catch (error: any) {
-    console.error("Gemini Chat API Error:", error);
-    const errMsg = error.message || "";
-    if (errMsg.includes("API_KEY_INVALID") || errMsg.includes("API key not valid") || errMsg.includes("invalid api key")) {
-      res.json({
-        text: `⚠️ **Lỗi API Key không hợp lệ từ máy chủ Google!**
-
-Khóa bạn nhập bắt đầu bằng \`AIzaSy\` hoặc \`AQ.\` nhưng Google báo lỗi là không hợp lệ (có thể khóa đã bị xóa, bị vô hiệu hóa, gõ thiếu ký tự hoặc chưa được liên kết thanh toán nếu bắt buộc).
-
-Vui lòng tạo một API Key mới bằng cách chọn **Create project** (Tạo dự án mới) trong Google AI Studio và thử lại nhé!`,
-        mock: true
+    try {
+      const responseStream = await ai.models.generateContentStream({
+        model: "gemini-3.5-flash",
+        contents: formattedContents,
+        config: {
+          systemInstruction: systemInstruction,
+          temperature: 0.5, // lower temperature for more precise, accurate, and consistent responses
+        }
       });
-      return;
+
+      for await (const chunk of responseStream) {
+        const text = chunk.text;
+        if (text) {
+          res.write(`data: ${JSON.stringify({ text })}\n\n`);
+        }
+      }
+      res.write("data: [DONE]\n\n");
+      res.end();
+    } catch (streamError: any) {
+      console.error("Gemini Streaming Error:", streamError);
+      const errMsg = streamError.message || "";
+      
+      let fallbackText = `⚠️ **Lỗi kết nối đến dịch vụ AI** (Chi tiết: ${errMsg}).
+      
+Để không làm gián đoạn việc học của bạn, dưới đây là phân tích tự động từ phòng thí nghiệm UrLab cho các số liệu hiện tại của bạn:`;
+
+      if (screenState) {
+        const { activeExperiment, params } = screenState;
+        if (activeExperiment === "pendulum" && params) {
+          const L = params.length || 1.5;
+          const g = params.gravity || 9.8;
+          const T = (2 * Math.PI * Math.sqrt(L / g)).toFixed(3);
+          fallbackText += `\n\n**🔍 Số liệu hiện tại của bạn (Con lắc đơn):**
+- Chiều dài dây treo L = **${L} m**
+- Gia tốc trọng trường g = **${g} m/s²**
+- Khối lượng quả nặng m = **${params.mass || 1.0} kg**
+- 👉 **Chu kỳ dao động lý thuyết: T = 2π·√(L/g) ≈ ${T} giây.**`;
+        } else if (activeExperiment === "spring" && params) {
+          const k = params.k || 40;
+          const m = params.mass || 1.0;
+          const T = (2 * Math.PI * Math.sqrt(m / k)).toFixed(3);
+          fallbackText += `\n\n**🔍 Số liệu hiện tại của bạn (Con lắc lò xo):**
+- Độ cứng lò xo k = **${k} N/m**
+- Khối lượng vật nặng m = **${m} kg**
+- 👉 **Chu kỳ dao động lý thuyết: T = 2π·√(m/k) ≈ ${T} giây.**`;
+        } else if (activeExperiment === "wave" && params) {
+          const f = params.frequency || 1.5;
+          const v = params.speed || 100;
+          const lambda = (v / f).toFixed(1);
+          fallbackText += `\n\n**🔍 Số liệu hiện tại của bạn (Giao thoa sóng):**
+- Tần số nguồn f = **${f} Hz**
+- Tốc độ truyền sóng v = **${v} mm/s**
+- 👉 **Bước sóng lan truyền lý thuyết: λ = v/f ≈ ${lambda} mm.**`;
+        } else if (activeExperiment === "light" && params) {
+          const a = params.a || 1.0;
+          const D = params.D || 2.0;
+          const lambda = params.lambda1 || 650;
+          const i = ((lambda * 1e-9 * D) / (a * 1e-3) * 1e3).toFixed(3);
+          fallbackText += `\n\n**🔍 Số liệu hiện tại của bạn (Giao thoa ánh sáng):**
+- Khoảng cách hai khe a = **${a} mm**
+- Khoảng cách đến màn D = **${D} m**
+- Bước sóng ánh sáng λ = **${lambda} nm**
+- 👉 **Khoảng vân giao thoa lý thuyết: i = (λ·D)/a ≈ ${i} mm.**`;
+        }
+      } else {
+        fallbackText += `\n\n1. **Chu kỳ của con lắc đơn**: **T = 2π·√(L/g)**.
+2. **Chu kỳ con lắc lò xo**: **T = 2π·√(m/k)**.
+3. **Giao thoa ánh sáng**: Khoảng vân **i = (λ·D) / a**.`;
+      }
+      
+      fallbackText += `\n\n*Hệ thống đang gặp sự cố kết nối với Gemini. Vui lòng liên hệ quản trị viên hoặc kiểm tra cấu hình trong Settings > Secrets.*`;
+      
+      await streamFallbackText(fallbackText);
     }
-    res.status(500).json({ error: error.message || "Failed to generate tutor response." });
+  } catch (err: any) {
+    console.error("Express handler error in /api/tutor:", err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: err.message });
+    }
   }
 });
 
@@ -202,18 +364,51 @@ app.post(["/api/quiz", "/quiz"], async (req, res) => {
         ],
         correctAnswer: 1,
         explanation: "Lực kéo về của con lắc đơn chính là thành phần tiếp tuyến của trọng lực: Pt = -m·g·sin(θ). Lực này luôn hướng về vị trí cân bằng và kéo quả nặng quay lại khi lệch khỏi vị trí thấp nhất."
+      },
+      {
+        question: "Trong dao động điều hòa của con lắc đơn tại một nơi cố định, nếu tăng chiều dài dây treo L lên gấp 4 lần thì chu kỳ dao động riêng T thay đổi thế nào?",
+        options: [
+          "Chu kỳ T tăng lên gấp 4 lần.",
+          "Chu kỳ T giảm đi 2 lần.",
+          "Chu kỳ T tăng lên gấp 2 lần.",
+          "Chu kỳ T không thay đổi."
+        ],
+        correctAnswer: 2,
+        explanation: "Theo công thức chu kỳ con lắc đơn T = 2π·√(L/g), chu kỳ T tỉ lệ thuận với căn bậc hai của chiều dài L. Khi L tăng lên 4 lần, √(L) tăng lên 2 lần, làm chu kỳ T tăng gấp 2 lần."
+      },
+      {
+        question: "Chu kỳ dao động điều hòa của con lắc đơn phụ thuộc vào yếu tố nào sau đây?",
+        options: [
+          "Khối lượng m của quả nặng.",
+          "Biên độ dao động và góc lệch ban đầu cực đại.",
+          "Chiều dài dây treo L và gia tốc trọng trường g tại nơi treo.",
+          "Độ cứng của dây treo."
+        ],
+        correctAnswer: 2,
+        explanation: "Chu kỳ con lắc đơn dao động điều hòa nhỏ (góc lệch bé) chỉ phụ thuộc vào đặc tính hình học là chiều dài dây L và gia tốc trọng trường g tại nơi làm thí nghiệm: T = 2π·√(L/g). Nó không phụ thuộc vào khối lượng m hay biên độ."
+      },
+      {
+        question: "Một con lắc đơn dao động điều hòa tại nơi có gia tốc g = 9.8 m/s² với dây treo dài L = 1.0 m. Chu kỳ dao động T xấp xỉ bằng bao nhiêu?",
+        options: [
+          "T ≈ 1.0 giây.",
+          "T ≈ 2.0 giây.",
+          "T ≈ 3.14 giây.",
+          "T ≈ 6.28 giây."
+        ],
+        correctAnswer: 1,
+        explanation: "Áp dụng công thức T = 2π·√(L/g) = 2 · 3.1416 · √(1 / 9.8) ≈ 2.0 giây. Đây được gọi là con lắc giây (có chu kỳ xấp xỉ 2 giây, tức mỗi giây thực hiện nửa chu kỳ)."
       }
     ],
     spring: [
       {
         question: "Một con lắc lò xo gồm vật nặng m và lò xo có độ cứng k đang dao động điều hòa. Nếu ta thay vật nặng bằng một vật khác có khối lượng lớn gấp 4 lần thì chu kỳ dao động riêng T của con lắc sẽ thay đổi như thế nào?",
         options: [
-          "Tăng lên 4 lần.",
-          "Giảm đi 2 lần.",
           "Tăng lên 2 lần.",
+          "Giảm đi 2 lần.",
+          "Tăng lên 4 lần.",
           "Giảm đi 4 lần."
         ],
-        correctAnswer: 2,
+        correctAnswer: 0,
         explanation: "Chu kỳ con lắc lò xo là T = 2π·√(m/k). Khi khối lượng m tăng lên 4 lần, chu kỳ T sẽ tăng lên √(4) = 2 lần. Do đó, hệ sẽ dao động chậm hơn và nặng nề hơn!"
       },
       {
@@ -225,20 +420,31 @@ app.post(["/api/quiz", "/quiz"], async (req, res) => {
           "W = m · g · A"
         ],
         correctAnswer: 2,
-        explanation: "Cơ năng của con lắc lò xo dao động điều hòa bằng tổng động năng và thế năng tại mọi thời điểm, tỉ lệ thuận với bình phương biên độ dao động: W = 1/2 · k · A²."
+        explanation: "Cơ năng của một con lắc lò xo dao động điều hòa bằng tổng động năng và thế năng tại mọi thời điểm, tỉ lệ thuận với bình phương biên độ dao động: W = 1/2 · k · A²."
+      },
+      {
+        question: "Khi vật nặng của con lắc lò xo đi qua vị trí cân bằng thì đại lượng nào sau đây đạt giá trị cực đại?",
+        options: [
+          "Thế năng của con lắc.",
+          "Động năng của con lắc.",
+          "Lực kéo về tác dụng lên vật.",
+          "Gia tốc của vật."
+        ],
+        correctAnswer: 1,
+        explanation: "Tại vị trí cân bằng, vật có li độ x = 0 nên thế năng bằng 0, tốc độ của vật đạt cực đại v = ω·A, do đó động năng của vật đạt cực đại."
       }
     ],
     wave: [
       {
-        question: "Hai nguồn sóng nước kết hợp S1 và S2 dao động cùng pha, tạo ra hiện tượng giao thoa sóng trên mặt nước. Một điểm M nằm trên vùng giao thoa có hiệu đường truyền d2 - d1 = k·λ (với k là số nguyên, λ là bước sóng). Điểm M này dao động với biên độ như thế nào?",
+        question: "Trong hiện tượng giao thoa sóng nước với hai nguồn dao động cùng pha, những điểm nằm trên đường trung trực của đoạn thẳng nối hai nguồn sẽ như thế nào?",
         options: [
-          "Dao động với biên độ cực tiểu (triệt tiêu lẫn nhau).",
-          "Dao động với biên độ cực đại (hỗ trợ tăng cường nhau).",
-          "Không dao động.",
-          "Dao động với biên độ bằng một nửa biên độ của nguồn."
+          "Là những điểm dao động với biên độ cực tiểu.",
+          "Là những điểm dao động với biên độ cực đại.",
+          "Là những điểm đứng yên không dao động.",
+          "Là những điểm dao động ngược pha với hai nguồn."
         ],
         correctAnswer: 1,
-        explanation: "Trong hiện tượng giao thoa sóng với hai nguồn cùng pha, những điểm có hiệu đường truyền sóng bằng một số nguyên lần bước sóng (d2 - d1 = k·λ) là vị trí cực đại giao thoa, tại đó hai sóng gặp nhau cùng pha và hỗ trợ tăng cường lẫn nhau."
+        explanation: "Trong giao thoa sóng nước với hai nguồn cùng pha, hiệu đường truyền từ hai nguồn tới một điểm trên đường trung trực bằng 0 (d2 - d1 = 0), là một số nguyên lần bước sóng. Do đó, hai sóng từ hai nguồn truyền tới luôn cùng pha và hỗ trợ tăng cường lẫn nhau, tạo thành các cực đại giao thoa."
       },
       {
         question: "Một sóng cơ hình sin truyền dọc theo một sợi dây đàn hồi với tần số f = 10 Hz và tốc độ truyền v = 2 m/s. Bước sóng λ của sóng cơ này là bao nhiêu?",
@@ -250,6 +456,28 @@ app.post(["/api/quiz", "/quiz"], async (req, res) => {
         ],
         correctAnswer: 1,
         explanation: "Bước sóng λ được tính theo công thức λ = v / f. Với v = 2 m/s và f = 10 Hz, ta có λ = 2 / 10 = 0.2 m = 20 cm."
+      },
+      {
+        question: "Hai nguồn sóng cơ học thế nào được gọi là hai nguồn kết hợp có khả năng tạo ra hiện tượng giao thoa ổn định?",
+        options: [
+          "Dao động cùng biên độ và cùng tốc độ truyền sóng.",
+          "Dao động cùng tần số, cùng phương và có hiệu số pha không đổi theo thời gian.",
+          "Được đặt rất gần nhau trên cùng một phương truyền.",
+          "Dao động hoàn toàn ngược pha nhau tại mọi thời điểm."
+        ],
+        correctAnswer: 1,
+        explanation: "Định nghĩa hai nguồn kết hợp là hai nguồn dao động cùng phương, cùng tần số (hoặc cùng chu kỳ) và có hiệu số pha không thay đổi theo thời gian. Chỉ các nguồn kết hợp mới tạo ra hệ vân giao thoa ổn định."
+      },
+      {
+        question: "Trong thí nghiệm giao thoa sóng nước với hai nguồn cùng pha, những điểm có hiệu đường truyền d2 - d1 = (k + 0.5)·λ (với k là số nguyên) sẽ dao động thế nào?",
+        options: [
+          "Dao động với biên độ cực đại.",
+          "Dao động với biên độ cực tiểu (triệt tiêu hoặc đứng yên).",
+          "Dao động cùng pha với hai nguồn sóng.",
+          "Dao động lệch pha 90 độ so với nguồn."
+        ],
+        correctAnswer: 1,
+        explanation: "Khi hiệu đường truyền bằng một số bán nguyên lần bước sóng, hai sóng truyền tới điểm đó dao động ngược pha và triệt tiêu lẫn nhau, tạo thành cực tiểu giao thoa."
       }
     ],
     light: [
@@ -273,7 +501,40 @@ app.post(["/api/quiz", "/quiz"], async (req, res) => {
           "Là một vạch màu đen hoàn toàn."
         ],
         correctAnswer: 0,
-        explanation: "Tại tâm màn quan sát, hiệu đường đi từ hai khe S1 và S2 bằng 0 (d2 - d1 = 0). Do đó, hai sóng từ hai nguồn kết hợp luôn đồng pha và giao thoa tạo nên vân sáng trung tâm bậc 0."
+        explanation: "Tại tâm màn quan sát, hiệu đường đi từ hai khe S1 S2 bằng 0 (d2 - d1 = 0). Do đó, hai sóng từ hai nguồn kết hợp luôn đồng pha và giao thoa tạo nên vân sáng trung tâm bậc 0."
+      },
+      {
+        question: "Trong thí nghiệm giao thoa ánh sáng khe Young, đo được khoảng cách giữa 5 vân sáng liên tiếp trên màn quan sát là L. Khoảng vân i được tính như thế nào?",
+        options: [
+          "i = L / 5",
+          "i = L / 4",
+          "i = L / 6",
+          "i = L"
+        ],
+        correctAnswer: 1,
+        explanation: "Giữa 5 vân sáng liên tiếp có đúng 4 khoảng vân i. Vì vậy, khoảng cách giữa chúng là L = 4i, suy ra khoảng vân i = L / 4."
+      },
+      {
+        question: "Khoảng vân giao thoa i của thí nghiệm khe Young tăng lên khi ta thực hiện điều chỉnh nào sau đây?",
+        options: [
+          "Giảm khoảng cách từ hai khe đến màn D.",
+          "Tăng khoảng cách giữa hai khe hẹp a.",
+          "Sử dụng ánh sáng có bước sóng λ lớn hơn.",
+          "Di chuyển nguồn sáng ra xa hai khe."
+        ],
+        correctAnswer: 2,
+        explanation: "Công thức khoảng vân là i = λ·D / a. Khoảng vân i tỉ lệ thuận với bước sóng λ, tỉ lệ thuận với D và tỉ lệ nghịch với a. Vì thế, dùng bước sóng λ lớn hơn sẽ làm tăng khoảng vân i."
+      },
+      {
+        question: "Trong thí nghiệm giao thoa khe Young, nếu ta dịch chuyển màn quan sát ra xa hai khe thêm một đoạn thì hệ vân giao thoa trên màn sẽ như thế nào?",
+        options: [
+          "Co lại gần nhau hơn.",
+          "Dãn rộng ra xa nhau hơn.",
+          "Không thay đổi.",
+          "Mờ dần và biến mất hẳn."
+        ],
+        correctAnswer: 1,
+        explanation: "Khi đưa màn ra xa hai khe, khoảng cách D tăng lên. Vì khoảng vân i = λ·D/a tỉ lệ thuận với D, nên D tăng làm khoảng vân i tăng, hệ vân giao thoa sẽ dãn rộng ra xa nhau hơn."
       }
     ]
   };
@@ -342,10 +603,15 @@ app.post(["/api/quiz", "/quiz"], async (req, res) => {
       throw new Error("Empty response from Gemini quiz generator");
     }
   } catch (error: any) {
-    console.error("Gemini Quiz API Error:", error);
+    const errMsg = error.message || "";
+    if (errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("quota") || errMsg.includes("429")) {
+      console.warn("Gemini Quiz Quota Exceeded (Handled gracefully with fallback):", errMsg);
+    } else {
+      console.error("Gemini Quiz API Error:", error);
+    }
     const questions = mockQuizQuestions[topicId] || mockQuizQuestions.pendulum;
     const randomIndex = Math.floor(Math.random() * questions.length);
-    res.json(questions[randomIndex]);
+    res.json({ ...questions[randomIndex], mock: true });
   }
 });
 

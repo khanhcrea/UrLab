@@ -2,13 +2,18 @@ import React, { useState, useRef, useEffect } from "react";
 import { MessageSquare, X, Send, Sparkles, Loader2, RefreshCw } from "lucide-react";
 import { ChatMessage } from "../types";
 
-export default function ChatBot() {
+interface ChatBotProps {
+  activeExperiment: "pendulum" | "wave" | "spring" | "light";
+  params: any;
+}
+
+export default function ChatBot({ activeExperiment, params }: ChatBotProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "welcome",
       role: "assistant",
-      content: "Chào bạn! Tôi là **UrLab Physics Tutor** - Gia sư Vật lý thông minh của bạn. 🌟\n\nTôi ở đây để giúp bạn hiểu rõ các khái niệm về **Dao động (Chương 1)** và **Sóng (Chương 2)**. \n\n*Ví dụ bạn có thể hỏi:*\n- *\"Hãy giải thích tại sao khi tăng chiều dài L thì chu kỳ con lắc T lại dài hơn?\"*\n- *\"Sóng dọc và sóng ngang khác nhau như thế nào?\"*\n- *\"Làm thế nào để đo chu kỳ con lắc chính xác nhất?\"*\n\nHãy nhắn câu hỏi của bạn xuống bên dưới nhé!",
+      content: "Chào bạn! Tôi là **UrLab Physics Tutor** - Gia sư Vật lý thông minh của bạn. 🌟\n\nTôi ở đây để giúp bạn hiểu rõ các khái niệm về **Dao động (Chương 1)** và **Sóng (Chương 2)**. \n\nTôi đã được **đồng bộ trực tiếp** với các thông số mô phỏng trên màn hình của bạn! Bạn thay đổi các thanh trượt hay thông số gì, tôi đều sẽ nhìn thấy thời gian thực để trả lời chính xác nhất.\n\n*Ví dụ bạn có thể hỏi:*\n- *\"Hãy giải thích tại sao khi tăng chiều dài L thì chu kỳ con lắc T lại dài hơn?\"*\n- *\"Tính chu kỳ lý thuyết với số liệu tôi đang chạy trên màn hình đi!\"*\n- *\"Sóng dọc và sóng ngang khác nhau như thế nào?\"*\n\nHãy nhắn câu hỏi của bạn xuống bên dưới nhé!",
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
   ]);
@@ -40,11 +45,11 @@ export default function ChatBot() {
 
     try {
       const history = messages
-        .filter((m) => m.id !== "welcome")
-        .map((m) => ({
-          role: m.role,
-          content: m.content
-        }));
+         .filter((m) => m.id !== "welcome")
+         .map((m) => ({
+           role: m.role,
+           content: m.content
+         }));
 
       const res = await fetch("/api/chat", {
         method: "POST",
@@ -53,30 +58,80 @@ export default function ChatBot() {
         },
         body: JSON.stringify({
           message: query,
-          history: history
+          history: history,
+          screenState: {
+            activeExperiment,
+            params
+          }
         })
       });
 
-      const data = await res.json();
-      
-      if (data.error) {
-        throw new Error(data.error);
+      if (!res.ok) {
+        throw new Error(`Mã lỗi máy chủ: ${res.status}`);
       }
 
-      const botMsg: ChatMessage = {
-        id: `bot-${Date.now()}`,
-        role: "assistant",
-        content: data.text || "Xin lỗi, tôi gặp chút trục trặc khi kết nối. Hãy thử lại nhé!",
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      };
+      const reader = res.body?.getReader();
+      const decoder = new TextDecoder("utf-8");
+      let botResponse = "";
 
-      setMessages((prev) => [...prev, botMsg]);
+      const botMsgId = `bot-${Date.now()}`;
+      // Add initial empty bot message
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: botMsgId,
+          role: "assistant",
+          content: "",
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }
+      ]);
+
+      let buffer = "";
+      let isDone = false;
+      while (reader && !isDone) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        let boundary = buffer.indexOf("\n");
+        while (boundary !== -1) {
+          const line = buffer.slice(0, boundary).trim();
+          buffer = buffer.slice(boundary + 1);
+
+          if (line.startsWith("data: ")) {
+            const dataStr = line.slice(6).trim();
+            if (dataStr === "[DONE]") {
+              isDone = true;
+              break;
+            } else {
+              try {
+                const parsed = JSON.parse(dataStr);
+                if (parsed.error) {
+                  throw new Error(parsed.error);
+                }
+                if (parsed.text !== undefined) {
+                  botResponse += parsed.text;
+                  setMessages((prev) =>
+                    prev.map((msg) =>
+                      msg.id === botMsgId ? { ...msg, content: botResponse } : msg
+                    )
+                  );
+                }
+              } catch (e) {
+                // Ignore incomplete JSON chunks
+              }
+            }
+          }
+          boundary = buffer.indexOf("\n");
+        }
+      }
+
     } catch (err: any) {
       console.error("Chat Error:", err);
       const errorMsg: ChatMessage = {
         id: `err-${Date.now()}`,
         role: "assistant",
-        content: "Hệ thống đang bận hoặc chưa cấu hình xong khóa bí mật Gemini API. Bạn vui lòng thử lại hoặc hỏi các chủ đề vật lý mẫu khác nhé!",
+        content: "Gia sư đang bận hoặc có lỗi kết nối đến API. Hãy kiểm tra cài đặt GEMINI_API_KEY và thử lại nhé!",
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
       setMessages((prev) => [...prev, errorMsg]);
@@ -135,27 +190,37 @@ export default function ChatBot() {
   const formatMessageText = (text: string) => {
     const cleanedText = cleanMathExpressions(text);
     return cleanedText.split("\n").map((line, index) => {
+      let displayLine = line;
+      let isBullet = false;
+      const trimmed = line.trim();
+      if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
+        isBullet = true;
+        // Strip leading list marker
+        displayLine = line.replace(/^\s*[-*]\s/, "");
+      } else if (trimmed === "-" || trimmed === "*") {
+        isBullet = true;
+        displayLine = "";
+      }
+
       const boldRegex = /\*\*(.*?)\*\*/g;
       const parts = [];
       let lastIdx = 0;
       let match;
       
-      while ((match = boldRegex.exec(line)) !== null) {
+      while ((match = boldRegex.exec(displayLine)) !== null) {
         if (match.index > lastIdx) {
-          parts.push(line.substring(lastIdx, match.index));
+          parts.push(displayLine.substring(lastIdx, match.index));
         }
         parts.push(<strong key={match.index} className="font-bold text-slate-900">{match[1]}</strong>);
         lastIdx = boldRegex.lastIndex;
       }
-      if (lastIdx < line.length) {
-        parts.push(line.substring(lastIdx));
+      if (lastIdx < displayLine.length) {
+        parts.push(displayLine.substring(lastIdx));
       }
 
-      const isBullet = line.trim().startsWith("-") || line.trim().startsWith("*");
-      
       return (
-        <p key={index} className={`leading-relaxed ${isBullet ? "pl-4 list-item list-disc" : "mt-1"}`}>
-          {parts.length > 0 ? parts : line}
+        <p key={index} className={`leading-relaxed ${isBullet ? "pl-4 list-item list-disc ml-4" : "mt-1"}`}>
+          {parts.length > 0 ? parts : displayLine}
         </p>
       );
     });
@@ -172,7 +237,13 @@ export default function ChatBot() {
               </div>
               <div>
                 <h3 className="font-bold text-sm tracking-tight">UrLab Tutor AI</h3>
-                <span className="text-[10px] text-teal-100 font-medium">Gia sư Vật Lý Lớp 11</span>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                  </span>
+                  <span className="text-[10px] text-teal-100 font-medium">Đồng bộ phòng Lab</span>
+                </div>
               </div>
             </div>
             

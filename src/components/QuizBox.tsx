@@ -90,32 +90,21 @@ export default function QuizBox({ experimentId }: QuizBoxProps) {
         </div>
       </div>
 
-      {/* Topic Selection Row */}
-      <div className="space-y-2">
-        <label htmlFor="quiz-topic-select" className="block text-xs font-bold uppercase tracking-wider text-slate-500">Chủ đề trắc nghiệm</label>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {[
-            { id: "pendulum", label: "Con Lắc Đơn" },
-            { id: "spring", label: "Con Lắc Lò Xo" },
-            { id: "wave", label: "Giao Thoa Sóng" },
-            { id: "light", label: "Giao Thoa Ánh Sáng" },
-          ].map((t) => (
-            <button
-              id={`quiz-topic-tab-${t.id}`}
-              key={t.id}
-              onClick={() => {
-                setTopic(t.id);
-                handleGenerateQuestion(t.id);
-              }}
-              className={`px-2.5 py-2 text-xs font-bold rounded-xl border text-center transition-all cursor-pointer ${
-                topic === t.id
-                  ? "bg-purple-600 border-purple-600 text-white shadow-sm font-black"
-                  : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
+      {/* Topic Information (Locked to Active Lab) */}
+      <div className="flex items-center justify-between bg-slate-50 border border-slate-150 p-3.5 rounded-2xl">
+        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Đang kiểm tra chủ đề:</span>
+        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 text-purple-700 text-xs font-black rounded-xl border border-purple-200">
+          <span className="relative flex h-1.5 w-1.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-purple-500"></span>
+          </span>
+          {topic === "pendulum"
+            ? "CON LẮC ĐƠN"
+            : topic === "spring"
+            ? "CON LẮC LÒ XO"
+            : topic === "wave"
+            ? "GIAO THOA SÓNG"
+            : "GIAO THOA ÁNH SÁNG"}
         </div>
       </div>
 

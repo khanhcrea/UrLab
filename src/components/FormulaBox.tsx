@@ -197,7 +197,7 @@ export default function FormulaBox({
           {/* Main Formula Display for Light Interference */}
           <div className="bg-slate-50 border border-slate-150 rounded-xl p-5 text-center flex flex-col items-center">
             <span className="text-sm text-slate-500 uppercase tracking-wider font-bold block mb-1.5">
-              {lMode === "single" ? "Khoảng vân giao thoa (Fringe width)" : "Khoảng vân giao thoa tương ứng"}
+              Khoảng vân giao thoa (Fringe width)
             </span>
             <div className="inline-flex items-center font-serif text-2xl text-slate-800 bg-white px-6 py-3.5 rounded-xl border border-slate-200/50 shadow-sm select-none">
               <span className="italic font-semibold">i</span>
@@ -215,64 +215,25 @@ export default function FormulaBox({
           </div>
 
           {/* Dynamic computed parameters for Light */}
-          {lMode === "single" ? (
-            <div className="grid grid-cols-1 gap-4 text-sm">
-              <div className="bg-slate-50/50 border border-slate-200/60 p-4 rounded-xl text-center">
-                <span className="text-slate-600 font-semibold block mb-0.5">Khoảng vân giao thoa tính toán (i)</span>
-                <span id="formula-light-i1" className="text-2xl font-bold font-mono text-blue-700 block">
-                  {iWidth1.toFixed(3)} mm
-                </span>
-              </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div className="bg-slate-50/50 border border-slate-200/60 p-4 rounded-xl col-span-2">
-                <span className="text-slate-600 font-semibold block mb-0.5">Tỷ số bước sóng (λ₁ / λ₂)</span>
-                <span className="text-base font-bold font-mono text-indigo-750 block">
-                  {lL1} / {lL2} = {(lL1 / lL2).toFixed(3)}
-                </span>
-              </div>
-
-              <div className="bg-slate-50/50 border border-slate-200/60 p-4 rounded-xl">
-                <span className="text-slate-600 font-semibold block mb-0.5">Khoảng vân i₁ (Chùm 1)</span>
-                <span id="formula-light-i1" className="text-lg font-bold font-mono text-blue-700 block">
-                  {lShow1 ? `${iWidth1.toFixed(3)} mm` : "Đã tắt"}
-                </span>
-              </div>
-
-              <div className="bg-slate-50/50 border border-slate-200/60 p-4 rounded-xl">
-                <span className="text-slate-600 font-semibold block mb-0.5">Khoảng vân i₂ (Chùm 2)</span>
-                <span id="formula-light-i2" className="text-lg font-bold font-mono text-teal-650 block">
-                  {lShow2 ? `${iWidth2.toFixed(3)} mm` : "Đã tắt"}
-                </span>
-              </div>
-            </div>
-          )}
-
-          {lMode === "single" ? (
-            <div className="bg-blue-50/50 border border-blue-100/70 rounded-xl p-4 text-sm text-blue-850 space-y-1.5 leading-relaxed">
-              <span className="font-bold flex items-center gap-1.5 text-blue-950 text-sm">
-                <HelpCircle className="h-4 w-4" /> Gợi ý quan sát đơn sắc:
+          <div className="grid grid-cols-1 gap-4 text-sm">
+            <div className="bg-slate-50/50 border border-slate-200/60 p-4 rounded-xl text-center">
+              <span className="text-slate-600 font-semibold block mb-0.5">Khoảng vân giao thoa tính toán (i)</span>
+              <span id="formula-light-i1" className="text-2xl font-bold font-mono text-blue-700 block">
+                {iWidth1.toFixed(3)} mm
               </span>
-              <ul className="list-disc pl-5 space-y-1.5 text-slate-700 text-sm">
-                <li>Tăng bước sóng <strong className="text-blue-900 font-bold">λ</strong> (Ví dụ: kéo slider từ Tím sang Đỏ) sẽ làm dãn khoảng cách giữa các vạch sáng (khoảng vân <strong className="text-blue-900 font-bold">i tăng</strong>).</li>
-                <li>Tăng khoảng cách màn <strong className="text-blue-900 font-bold">D</strong> sẽ làm dãn khoảng cách vân (khoảng vân <strong className="text-blue-900 font-bold">i tăng tỷ lệ thuận</strong>).</li>
-                <li>Tăng khoảng cách hai khe <strong className="text-blue-900 font-bold">a</strong> sẽ làm các vạch sáng xếp khít lại với nhau (khoảng vân <strong className="text-blue-900 font-bold">i giảm tỉ lệ nghịch</strong>).</li>
-              </ul>
             </div>
-          ) : (
-            <div className="bg-violet-50/50 border border-violet-100/70 rounded-xl p-4 text-sm text-violet-850 space-y-1.5 leading-relaxed">
-              <span className="font-bold flex items-center gap-1.5 text-violet-950 text-sm">
-                <HelpCircle className="h-4 w-4" /> Gợi ý quan sát cực đại trùng:
-              </span>
-              <ul className="list-disc pl-5 space-y-1.5 text-slate-700 text-sm">
-                <li>Cực đại trùng xảy ra khi <strong className="text-violet-900 font-bold">k₁ · λ₁ = k₂ · λ₂</strong>.</li>
-                <li>Chỗ hai vân trùng nhau sẽ tạo thành một vạch màu đặc biệt (Ví dụ: Đỏ + Lục = Vàng).</li>
-                <li>Hãy quan sát tại vạch trung tâm <strong className="text-violet-900 font-bold">x = 0</strong> luôn là vị trí trùng nhau của cả hai chùm sáng!</li>
-                <li>Tăng khoảng cách màn <strong className="text-violet-900 font-bold">D</strong> sẽ làm dãn khoảng cách giữa các vạch sáng (khoảng vân <strong className="text-violet-900 font-bold">i tăng</strong>).</li>
-              </ul>
-            </div>
-          )}
+          </div>
+
+          <div className="bg-blue-50/50 border border-blue-100/70 rounded-xl p-4 text-sm text-blue-850 space-y-1.5 leading-relaxed">
+            <span className="font-bold flex items-center gap-1.5 text-blue-950 text-sm">
+              <HelpCircle className="h-4 w-4" /> Gợi ý quan sát giao thoa đơn sắc:
+            </span>
+            <ul className="list-disc pl-5 space-y-1.5 text-slate-700 text-sm">
+              <li>Tăng bước sóng <strong className="text-blue-900 font-bold">λ</strong> (Ví dụ: kéo slider từ Tím sang Đỏ) sẽ làm dãn khoảng cách giữa các vạch sáng (khoảng vân <strong className="text-blue-900 font-bold">i tăng</strong>).</li>
+              <li>Tăng khoảng cách màn <strong className="text-blue-900 font-bold">D</strong> sẽ làm dãn khoảng cách vân (khoảng vân <strong className="text-blue-900 font-bold">i tăng tỷ lệ thuận</strong>).</li>
+              <li>Tăng khoảng cách hai khe <strong className="text-blue-900 font-bold">a</strong> sẽ làm các vạch sáng xếp khít lại với nhau (khoảng vân <strong className="text-blue-900 font-bold">i giảm tỉ lệ nghịch</strong>).</li>
+            </ul>
+          </div>
         </div>
       ) : (
         <div className="space-y-5">

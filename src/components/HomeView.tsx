@@ -188,7 +188,7 @@ export default function HomeView({ onEnterLab }: HomeViewProps) {
             <div className="flex flex-col justify-between bg-slate-50 border border-slate-200 rounded-3xl p-8 sm:p-10 hover:border-blue-400 hover:shadow-xl transition-all group">
               <div className="space-y-5">
                 <span className="inline-flex rounded-full bg-blue-100 px-4 py-1.5 text-sm font-bold text-blue-800">
-                  Chương 1: Dao Động Cơ
+                  Chương: Dao động
                 </span>
                 <h3 className="text-2xl font-black text-slate-900 group-hover:text-blue-600 transition-colors">
                   Bài 1: Con Lắc Đơn (Simple Pendulum)
@@ -212,7 +212,7 @@ export default function HomeView({ onEnterLab }: HomeViewProps) {
             <div className="flex flex-col justify-between bg-slate-50 border border-slate-200 rounded-3xl p-8 sm:p-10 hover:border-indigo-400 hover:shadow-xl transition-all group">
               <div className="space-y-5">
                 <span className="inline-flex rounded-full bg-indigo-100 px-4 py-1.5 text-sm font-bold text-indigo-850">
-                  Chương 1: Dao Động Điều Hòa
+                  Chương: Dao động
                 </span>
                 <h3 className="text-2xl font-black text-slate-900 group-hover:text-indigo-600 transition-colors">
                   Bài 2: Con Lắc Lò Xo (Spring-Mass)
@@ -236,7 +236,7 @@ export default function HomeView({ onEnterLab }: HomeViewProps) {
             <div className="flex flex-col justify-between bg-slate-50 border border-slate-200 rounded-3xl p-8 sm:p-10 hover:border-teal-400 hover:shadow-xl transition-all group">
               <div className="space-y-5">
                 <span className="inline-flex rounded-full bg-teal-100 px-4 py-1.5 text-sm font-bold text-teal-850">
-                  Chương 2: Sóng Cơ & Sóng Ánh Sáng
+                  Chương: Sóng
                 </span>
                 <h3 className="text-2xl font-black text-slate-900 group-hover:text-teal-600 transition-colors">
                   Bài 3: Giao Thoa Sóng & Sóng Truyền (Wave Simulator)
@@ -260,7 +260,7 @@ export default function HomeView({ onEnterLab }: HomeViewProps) {
             <div className="flex flex-col justify-between bg-slate-50 border border-slate-200 rounded-3xl p-8 sm:p-10 hover:border-violet-400 hover:shadow-xl transition-all group">
               <div className="space-y-5">
                 <span className="inline-flex rounded-full bg-violet-100 px-4 py-1.5 text-sm font-bold text-violet-850">
-                  Chương 2: Sóng Cơ & Sóng Ánh Sáng
+                  Chương: Sóng
                 </span>
                 <h3 className="text-2xl font-black text-slate-900 group-hover:text-violet-600 transition-colors">
                   Bài 4: Giao Thoa Ánh Sáng (Double-Slit Interference)

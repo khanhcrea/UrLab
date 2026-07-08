@@ -58,6 +58,20 @@ function wavelengthToRGBComponents(wavelength: number): { r: number; g: number; 
   };
 }
 
+// Sinc-squared envelope function representing single-slit diffraction modulating the fringes
+function getSincSquared(xMm: number, aMm: number, lambdaNm: number, DNm: number): number {
+  // Let slit width b = aMm / 5, with a minimum of 0.04mm to prevent extremely wide envelopes at small 'a'
+  const bMm = Math.max(aMm / 5, 0.04);
+  
+  // beta = pi * b * x / (lambda * D)
+  // units: x in mm, b in mm, lambda in nm, D in m
+  // beta = pi * xMm * bMm * 1000 / (lambdaNm * DNm)
+  const beta = (Math.PI * xMm * bMm * 1000) / (lambdaNm * DNm);
+  
+  if (Math.abs(beta) < 0.001) return 1.0;
+  return Math.pow(Math.sin(beta) / beta, 2);
+}
+
 export default function LightInterferenceCanvas({
   params,
   setParams,
@@ -112,7 +126,7 @@ export default function LightInterferenceCanvas({
     ctx.fillRect(0, 0, width, height);
 
     // Position coordinates
-    const sourceX = 40;
+    const sourceX = 45;
     const slitsX = 180;
     const screenX = width - 40;
     const centerY = height / 2;
@@ -120,115 +134,195 @@ export default function LightInterferenceCanvas({
     const slit1Y = centerY - (a * 25); // Scale slit spacing visually
     const slit2Y = centerY + (a * 25);
 
-    // 1. Draw Lasers Source
-    if (showBeam1) {
-      const c1 = wavelengthToRGBComponents(lambda1);
-      ctx.save();
-      ctx.shadowBlur = 10;
-      ctx.shadowColor = `rgb(${c1.r * 255}, ${c1.g * 255}, ${c1.b * 255})`;
-      ctx.strokeStyle = `rgba(${c1.r * 255}, ${c1.g * 255}, ${c1.b * 255}, 0.85)`;
-      ctx.lineWidth = 3;
-      
-      // Laser 1 emitter box
-      ctx.fillStyle = "#334155";
-      ctx.fillRect(sourceX - 25, centerY - 25, 25, 12);
-      ctx.fillStyle = "#ef4444";
-      ctx.fillRect(sourceX - 8, centerY - 21, 4, 4);
+    // 1. Draw Single Wave Source & Slit S0 (left side of double slits)
+    const c1 = wavelengthToRGBComponents(lambda1);
+    const r1 = Math.round(c1.r * 255);
+    const g1 = Math.round(c1.g * 255);
+    const b1 = Math.round(c1.b * 255);
+    const colorStr = `rgb(${r1}, ${g1}, ${b1})`;
+    const colorStrAlpha = (alpha: number) => `rgba(${r1}, ${g1}, ${b1}, ${alpha})`;
 
-      // Beam 1 path
+    // Draw Light Bulb or Laser Illuminator pointing to S0
+    ctx.save();
+    ctx.fillStyle = "#1e293b";
+    ctx.strokeStyle = "#475569";
+    ctx.lineWidth = 1.5;
+    ctx.fillRect(8, centerY - 15, 18, 30);
+    ctx.strokeRect(8, centerY - 15, 18, 30);
+    // Draw nozzle pointing to S0
+    ctx.fillStyle = "#334155";
+    ctx.fillRect(26, centerY - 5, 4, 10);
+    // Glow of the source inside nozzle
+    ctx.fillStyle = colorStr;
+    ctx.beginPath();
+    ctx.arc(24, centerY, 3, 0, 2 * Math.PI);
+    ctx.fill();
+    
+    // Narrow laser beam from the nozzle to S0
+    ctx.strokeStyle = colorStrAlpha(0.65);
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(30, centerY);
+    ctx.lineTo(sourceX - 3, centerY);
+    ctx.stroke();
+    ctx.restore();
+
+    // Barrier at sourceX with a single slit S0 in the middle
+    ctx.save();
+    ctx.fillStyle = "#334155";
+    ctx.fillRect(sourceX - 3, 15, 6, centerY - 20); // top half
+    ctx.fillRect(sourceX - 3, centerY + 5, 6, height - centerY - 20); // bottom half
+    ctx.strokeStyle = "#475569";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(sourceX - 3, 15, 6, centerY - 20);
+    ctx.strokeRect(sourceX - 3, centerY + 5, 6, height - centerY - 20);
+
+    // Glowing slit opening S0
+    ctx.fillStyle = colorStr;
+    ctx.fillRect(sourceX - 3, centerY - 3, 6, 6);
+
+    // Label for S0
+    ctx.fillStyle = "#cbd5e1";
+    ctx.font = "bold 9px monospace";
+    ctx.fillText("S0", sourceX - 18, centerY + 3);
+    ctx.restore();
+
+    // 1.5. Draw Coherent Waves Propagation from S0 to the double slits S1, S2
+    ctx.save();
+    const numWaves = 12;
+    const maxRadius = screenX - slitsX;
+    const spacing = maxRadius / numWaves; // match right side wave spacing exactly
+    const maxRadiusLeft = slitsX - sourceX; // 180 - 45 = 135
+    const numWavesLeft = Math.ceil(maxRadiusLeft / spacing) + 1;
+
+    for (let j = 0; j < numWavesLeft; j++) {
+      // Propagation speed & direction matches right side waves
+      const radius = ((j * spacing + (phaseOffset * 4)) % maxRadiusLeft);
+      const opacity = Math.max(0, (1 - radius / maxRadiusLeft) * 0.45);
+
+      ctx.strokeStyle = colorStrAlpha(opacity);
+      ctx.lineWidth = 1.4;
       ctx.beginPath();
-      ctx.moveTo(sourceX, centerY - 19);
-      ctx.lineTo(slitsX, slit1Y);
-      ctx.lineTo(slitsX, slit2Y);
+      // Draw arc going rightwards (from -Math.PI/2.2 to Math.PI/2.2)
+      ctx.arc(sourceX, centerY, radius, -Math.PI / 2.2, Math.PI / 2.2);
       ctx.stroke();
-      ctx.restore();
     }
+    ctx.restore();
 
-    if (effectiveShowBeam2) {
-      const c2 = wavelengthToRGBComponents(lambda2);
-      ctx.save();
-      ctx.shadowBlur = 10;
-      ctx.shadowColor = `rgb(${c2.r * 255}, ${c2.g * 255}, ${c2.b * 255})`;
-      ctx.strokeStyle = `rgba(${c2.r * 255}, ${c2.g * 255}, ${c2.b * 255}, 0.85)`;
-      ctx.lineWidth = 3;
+    // 2. Draw Waves Propagation after double slits as concentric animated wavefronts
+    ctx.save();
+    
+    for (let i = 1; i <= numWaves; i++) {
+      const radius = ((i * spacing + (phaseOffset * 4)) % maxRadius);
+      const opacity = Math.max(0, (1 - radius / maxRadius) * 0.35);
 
-      // Laser 2 emitter box
-      ctx.fillStyle = "#334155";
-      ctx.fillRect(sourceX - 25, centerY + 13, 25, 12);
-      ctx.fillStyle = "#22c55e";
-      ctx.fillRect(sourceX - 8, centerY + 17, 4, 4);
-
-      // Beam 2 path
+      // From Slit 1
+      ctx.strokeStyle = colorStrAlpha(opacity);
+      ctx.lineWidth = 1.2;
       ctx.beginPath();
-      ctx.moveTo(sourceX, centerY + 19);
-      ctx.lineTo(slitsX, slit1Y);
-      ctx.lineTo(slitsX, slit2Y);
+      ctx.arc(slitsX, slit1Y, radius, -Math.PI / 2.5, Math.PI / 2.5);
       ctx.stroke();
-      ctx.restore();
+
+      // From Slit 2
+      ctx.beginPath();
+      ctx.arc(slitsX, slit2Y, radius, -Math.PI / 2.5, Math.PI / 2.5);
+      ctx.stroke();
     }
+    ctx.restore();
 
-    // 2. Draw Waves Propagation after double slits (diffraction pattern approximation)
-    if (showBeam1 || effectiveShowBeam2) {
-      ctx.save();
-      // Draw wavefront circles
-      const numWaves = 6;
-      const maxRadius = screenX - slitsX;
-      
-      for (let i = 1; i <= numWaves; i++) {
-        const radius = ((i * (maxRadius / numWaves) + (phaseOffset * 3)) % maxRadius);
-        const opacity = (1 - radius / maxRadius) * 0.25;
+    // Helper to get screen pixel Y for a given interference order k
+    const getScreenYForK = (k: number) => {
+      const yMm = (k * lambda1 * D) / (a * 1000);
+      const maxScreenRangeMm = 8.0;
+      return centerY + (yMm / (maxScreenRangeMm / 2)) * (height / 2 - 11);
+    };
 
-        if (showBeam1) {
-          const c1 = wavelengthToRGBComponents(lambda1);
-          ctx.strokeStyle = `rgba(${c1.r * 255}, ${c1.g * 255}, ${c1.b * 255}, ${opacity})`;
-          ctx.lineWidth = 1.5;
-          // From Slit 1
-          ctx.beginPath();
-          ctx.arc(slitsX, slit1Y, radius, -Math.PI/3, Math.PI/3);
-          ctx.stroke();
+    // 2.5. Draw Interference rays (paths of Constructive and Destructive interference)
+    // These guide lines help students understand how waves overlap to form bright/dark spots on the screen
+    ctx.save();
+    
+    // Constructive paths (Bright fringes) - Solid colored glowing paths
+    const kBrightValues = [0, 1, -1, 2, -2];
+    kBrightValues.forEach((k) => {
+      const endY = getScreenYForK(k);
+      if (endY >= 11 && endY <= height - 11) {
+        ctx.strokeStyle = colorStrAlpha(0.22);
+        ctx.lineWidth = k === 0 ? 2 : 1.2;
+        ctx.beginPath();
+        ctx.moveTo(slitsX, centerY);
+        ctx.lineTo(screenX, endY);
+        ctx.stroke();
 
-          // From Slit 2
-          ctx.beginPath();
-          ctx.arc(slitsX, slit2Y, radius, -Math.PI/3, Math.PI/3);
-          ctx.stroke();
-        }
-
-        if (effectiveShowBeam2) {
-          const c2 = wavelengthToRGBComponents(lambda2);
-          ctx.strokeStyle = `rgba(${c2.r * 255}, ${c2.g * 255}, ${c2.b * 255}, ${opacity})`;
-          ctx.lineWidth = 1.5;
-          // From Slit 1
-          ctx.beginPath();
-          ctx.arc(slitsX, slit1Y, radius, -Math.PI/3, Math.PI/3);
-          ctx.stroke();
-
-          // From Slit 2
-          ctx.beginPath();
-          ctx.arc(slitsX, slit2Y, radius, -Math.PI/3, Math.PI/3);
-          ctx.stroke();
-        }
+        // Subtle labels near the screen to indicate fringe orders
+        ctx.fillStyle = colorStrAlpha(0.6);
+        ctx.font = "8px sans-serif";
+        ctx.fillText(`k=${k}`, screenX - 22, endY < centerY ? endY - 4 : endY + 8);
       }
-      ctx.restore();
-    }
+    });
+
+    // Destructive paths (Dark fringes) - Thin dashed grey lines
+    const kDarkValues = [0.5, -0.5, 1.5, -1.5];
+    kDarkValues.forEach((k) => {
+      const endY = getScreenYForK(k);
+      if (endY >= 11 && endY <= height - 11) {
+        ctx.strokeStyle = "rgba(148, 163, 184, 0.15)";
+        ctx.lineWidth = 0.8;
+        ctx.setLineDash([3, 5]);
+        ctx.beginPath();
+        ctx.moveTo(slitsX, centerY);
+        ctx.lineTo(screenX, endY);
+        ctx.stroke();
+      }
+    });
+    ctx.restore();
 
     // 3. Draw Double Slits Block (Young's Slits barrier)
-    ctx.fillStyle = "#475569";
+    ctx.fillStyle = "#334155";
     ctx.fillRect(slitsX - 4, 15, 8, slit1Y - 17); // Top block
     ctx.fillRect(slitsX - 4, slit1Y + 3, 8, (slit2Y - slit1Y) - 6); // Middle block
     ctx.fillRect(slitsX - 4, slit2Y + 3, 8, height - slit2Y - 18); // Bottom block
 
+    ctx.strokeStyle = "#475569";
+    ctx.strokeRect(slitsX - 4, 15, 8, slit1Y - 17);
+    ctx.strokeRect(slitsX - 4, slit1Y + 3, 8, (slit2Y - slit1Y) - 6);
+    ctx.strokeRect(slitsX - 4, slit2Y + 3, 8, height - slit2Y - 18);
+
+    // Glowing slit openings
+    ctx.fillStyle = colorStr;
+    ctx.fillRect(slitsX - 4, slit1Y - 1, 8, 3);
+    ctx.fillRect(slitsX - 4, slit2Y - 1, 8, 3);
+
     // Label slits
     ctx.fillStyle = "#cbd5e1";
-    ctx.font = "9px monospace";
-    ctx.fillText("S1", slitsX - 18, slit1Y + 3);
-    ctx.fillText("S2", slitsX - 18, slit2Y + 3);
+    ctx.font = "bold 9px monospace";
+    ctx.fillText("S1", slitsX - 20, slit1Y + 3);
+    ctx.fillText("S2", slitsX - 20, slit2Y + 3);
+    ctx.fillStyle = "#94a3b8";
     ctx.fillText(`a = ${a.toFixed(1)}mm`, slitsX - 25, centerY - 38);
 
     // 4. Draw Screen Projector Line
-    ctx.fillStyle = "#1e293b";
+    ctx.fillStyle = "#000000"; // Deep black background for the projection screen
     ctx.fillRect(screenX, 10, 15, height - 20);
     ctx.strokeStyle = "#475569";
     ctx.strokeRect(screenX, 10, 15, height - 20);
+
+    // Draw the actual vertical projection of fringes on the schematic screen
+    const maxScreenRangeMm = 8.0; // standard vertical screen range in mm
+    for (let y = 11; y < height - 11; y++) {
+      // yMm is the physical position relative to center
+      const yMm = ((y - centerY) / (height / 2)) * (maxScreenRangeMm / 2);
+      
+      // Single-slit envelope modulation (physical correction)
+      const env1 = getSincSquared(yMm, a, lambda1, D);
+      const val1 = Math.pow(Math.cos((Math.PI * yMm * a * 1000) / (lambda1 * D)), 2) * env1;
+
+      const rMix = Math.min((c1.r * val1) * 255, 255);
+      const gMix = Math.min((c1.g * val1) * 255, 255);
+      const bMix = Math.min((c1.b * val1) * 255, 255);
+
+      ctx.fillStyle = `rgb(${Math.round(rMix)}, ${Math.round(gMix)}, ${Math.round(bMix)})`;
+      ctx.fillRect(screenX + 1, y, 13, 1);
+    }
 
     // Label Screen
     ctx.save();
@@ -279,8 +373,8 @@ export default function LightInterferenceCanvas({
 
     ctx.clearRect(0, 0, width, height);
 
-    // Screen slice rendering height: let top 80 pixels be the projection of fringes
-    // and bottom 100 pixels be the Intensity Line Plot
+    // Screen slice rendering height: let top 70 pixels be the projection of fringes
+    // and bottom 130 pixels be the Intensity Line Plot
     const screenProjHeight = 70;
     const plotCenterY = 145;
     const plotMaxHeight = 50;
@@ -294,42 +388,28 @@ export default function LightInterferenceCanvas({
     const halfWidth = width / 2;
 
     const c1 = wavelengthToRGBComponents(lambda1);
-    const c2 = wavelengthToRGBComponents(lambda2);
+    const r1 = Math.round(c1.r * 255);
+    const g1 = Math.round(c1.g * 255);
+    const b1 = Math.round(c1.b * 255);
+    const colorStrAlpha = (alpha: number) => `rgba(${r1}, ${g1}, ${b1}, ${alpha})`;
 
     // Draw Fringe pattern & collect plot points
     const points1: number[] = [];
-    const points2: number[] = [];
-    const combinedPoints: { r: number; g: number; b: number }[] = [];
 
     for (let pixelX = 0; pixelX < width; pixelX++) {
       // Coordinate x on screen in mm relative to center (0)
       const xMm = ((pixelX - halfWidth) / halfWidth) * (screenRangeMm / 2);
 
-      // Light Intensity at position x
-      // Phase difference delta = 2 * pi * d / lambda = 2 * pi * x * a / (lambda * D)
-      // Intensity I = I0 * cos^2(delta / 2) = I0 * cos^2(pi * x * a / (lambda * D))
-      // Unit match: x (mm), a (mm), D (m) = D * 10^3 mm, lambda (nm) = lambda * 10^-6 mm
-      // delta_half = pi * x * a / (lambda * D)
-      // with lambda in micrometers (lambda_nm / 1000) and D in meters:
-      // delta_half = pi * x(mm) * a(mm) / ( (lambda_nm / 1e6) * (D * 1000) )
-      //            = pi * x * a * 1000 / (lambda_nm * D)
-      const val1 = showBeam1
-        ? Math.pow(Math.cos((Math.PI * xMm * a * 1000) / (lambda1 * D)), 2)
-        : 0;
-
-      const val2 = effectiveShowBeam2
-        ? Math.pow(Math.cos((Math.PI * xMm * a * 1000) / (lambda2 * D)), 2)
-        : 0;
+      // Light Intensity at position x with single-slit diffraction envelope
+      const env1 = getSincSquared(xMm, a, lambda1, D);
+      const val1 = Math.pow(Math.cos((Math.PI * xMm * a * 1000) / (lambda1 * D)), 2) * env1;
 
       points1.push(val1);
-      points2.push(val2);
 
       // Additive color mixing
-      const rMix = Math.min((c1.r * val1 + c2.r * val2) * 255, 255);
-      const gMix = Math.min((c1.g * val1 + c2.g * val2) * 255, 255);
-      const bMix = Math.min((c1.b * val1 + c2.b * val2) * 255, 255);
-
-      combinedPoints.push({ r: rMix, g: gMix, b: bMix });
+      const rMix = Math.min((c1.r * val1) * 255, 255);
+      const gMix = Math.min((c1.g * val1) * 255, 255);
+      const bMix = Math.min((c1.b * val1) * 255, 255);
 
       // Draw vertical fringe line
       ctx.fillStyle = `rgb(${Math.round(rMix)}, ${Math.round(gMix)}, ${Math.round(bMix)})`;
@@ -357,6 +437,25 @@ export default function LightInterferenceCanvas({
       ctx.fillText(`${mm > 0 ? "+" : ""}${mm}`, pX, height - 8);
     }
 
+    // Plot horizontal intensity levels
+    ctx.setLineDash([3, 3]);
+    const intensityLevels = [
+      { val: 1.0, label: "I = 1.0 (Cực đại)" },
+      { val: 0.5, label: "I = 0.5" }
+    ];
+    for (const item of intensityLevels) {
+      const pY = plotCenterY - item.val * plotMaxHeight;
+      ctx.beginPath();
+      ctx.moveTo(0, pY);
+      ctx.lineTo(width, pY);
+      ctx.stroke();
+
+      ctx.fillStyle = "#94a3b8";
+      ctx.font = "8px monospace";
+      ctx.textAlign = "left";
+      ctx.fillText(item.label, 6, pY - 3);
+    }
+
     // Plot baseline
     ctx.strokeStyle = "#cbd5e1";
     ctx.setLineDash([]);
@@ -367,51 +466,33 @@ export default function LightInterferenceCanvas({
     ctx.stroke();
     ctx.restore();
 
-    // 1. Draw Intensity Curve 1 (if enabled)
-    if (showBeam1) {
-      ctx.save();
-      ctx.strokeStyle = `rgba(${c1.r * 255}, ${c1.g * 255}, ${c1.b * 255}, 0.7)`;
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      for (let px = 0; px < width; px++) {
-        const py = plotCenterY - points1[px] * plotMaxHeight;
-        if (px === 0) ctx.moveTo(px, py);
-        else ctx.lineTo(px, py);
-      }
-      ctx.stroke();
-      ctx.restore();
+    // 1. Draw Intensity Curve & filled area
+    ctx.save();
+    
+    // Draw glowing line
+    ctx.strokeStyle = `rgb(${r1}, ${g1}, ${b1})`;
+    ctx.lineWidth = 2.5;
+    ctx.shadowBlur = 4;
+    ctx.shadowColor = colorStrAlpha(0.5);
+    ctx.beginPath();
+    for (let px = 0; px < width; px++) {
+      const py = plotCenterY - points1[px] * plotMaxHeight;
+      if (px === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
     }
-
-    // 2. Draw Intensity Curve 2 (if enabled)
-    if (effectiveShowBeam2) {
-      ctx.save();
-      ctx.strokeStyle = `rgba(${c2.r * 255}, ${c2.g * 255}, ${c2.b * 255}, 0.7)`;
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      for (let px = 0; px < width; px++) {
-        const py = plotCenterY - points2[px] * plotMaxHeight;
-        if (px === 0) ctx.moveTo(px, py);
-        else ctx.lineTo(px, py);
-      }
-      ctx.stroke();
-      ctx.restore();
-    }
-
-    // 3. Draw OVERLAPPED combined intensity curve
-    if (showBeam1 && effectiveShowBeam2) {
-      ctx.save();
-      ctx.strokeStyle = "#fbbf24"; // Gold color representing overlap summation
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      for (let px = 0; px < width; px++) {
-        // Average combined representation
-        const py = plotCenterY - ((points1[px] + points2[px]) / 2) * plotMaxHeight;
-        if (px === 0) ctx.moveTo(px, py);
-        else ctx.lineTo(px, py);
-      }
-      ctx.stroke();
-      ctx.restore();
-    }
+    ctx.stroke();
+    
+    // Fill the area under the curve with a gradient
+    const areaGrd = ctx.createLinearGradient(0, plotCenterY - plotMaxHeight, 0, plotCenterY);
+    areaGrd.addColorStop(0, colorStrAlpha(0.25));
+    areaGrd.addColorStop(1, colorStrAlpha(0.0));
+    ctx.fillStyle = areaGrd;
+    ctx.lineTo(width - 1, plotCenterY);
+    ctx.lineTo(0, plotCenterY);
+    ctx.closePath();
+    ctx.fill();
+    
+    ctx.restore();
 
     // Screen Center Mark
     ctx.strokeStyle = "rgba(220, 38, 38, 0.4)";
@@ -430,17 +511,10 @@ export default function LightInterferenceCanvas({
 
   // Handle simulation observation logging
   const handleSave = () => {
-    let overlapType = "N/A";
-    if (showBeam1 && effectiveShowBeam2) {
-      const ratio = fringeWidth1 / fringeWidth2;
-      overlapType = `Tỷ số khoảng vân i₁/i₂ = ${ratio.toFixed(2)}`;
-    } else {
-      overlapType = "Giao thoa đơn sắc (1 chùm)";
-    }
     onSaveObservation({
-      fringeWidth1: showBeam1 ? fringeWidth1 : 0,
-      fringeWidth2: effectiveShowBeam2 ? fringeWidth2 : 0,
-      overlapType,
+      fringeWidth1: fringeWidth1,
+      fringeWidth2: 0,
+      overlapType: "Giao thoa đơn sắc (Khe Young)",
     });
   };
 
@@ -452,9 +526,7 @@ export default function LightInterferenceCanvas({
         <div className="bg-slate-950 p-3.5 border-b border-slate-850 flex items-center justify-between text-xs text-slate-300">
           <span className="flex items-center gap-1.5 font-bold">
             <Sparkles className="h-4 w-4 text-amber-400 animate-pulse" />
-            {mode === "single"
-              ? "Mô phỏng Giao Thoa Ánh Sáng Đơn Sắc (Young's Slits Experiment)"
-              : "Mô phỏng Giao Thoa 2 Chùm Sáng (Young's Slits Experiment)"}
+            Mô phỏng Thí nghiệm Khe Young (Young's Double-Slit Experiment)
           </span>
           <span className="text-[10px] bg-slate-900 px-2.5 py-1 rounded text-teal-400 font-mono">
             Vùng quan sát: -6mm đến +6mm
@@ -488,26 +560,15 @@ export default function LightInterferenceCanvas({
           {/* Label explanations */}
           <div className="mt-2.5 flex flex-wrap gap-4 items-center justify-between text-[10px] text-slate-500 font-medium">
             <div className="flex gap-3">
-              {showBeam1 && (
-                <span className="flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: `rgb(${wavelengthToRGBComponents(lambda1).r*255}, ${wavelengthToRGBComponents(lambda1).g*255}, ${wavelengthToRGBComponents(lambda1).b*255})` }} />
-                  {mode === "single" ? "Đường cường độ chùm sáng" : "Đường cường độ chùm 1"}
-                </span>
-              )}
-              {effectiveShowBeam2 && (
-                <span className="flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: `rgb(${wavelengthToRGBComponents(lambda2).r*255}, ${wavelengthToRGBComponents(lambda2).g*255}, ${wavelengthToRGBComponents(lambda2).b*255})` }} />
-                  Đường cường độ chùm 2
-                </span>
-              )}
-              {showBeam1 && effectiveShowBeam2 && (
-                <span className="flex items-center gap-1 text-amber-600">
-                  <span className="h-0.5 w-3 bg-amber-400" />
-                  Đồ thị giao thoa tổng hợp (Cực đại trùng)
-                </span>
-              )}
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: `rgb(${Math.round(wavelengthToRGBComponents(lambda1).r * 255)}, ${Math.round(wavelengthToRGBComponents(lambda1).g * 255)}, ${Math.round(wavelengthToRGBComponents(lambda1).b * 255)})` }} />
+                Đường phân bố cường độ sáng I(x) của nguồn đơn sắc
+              </span>
+              <span className="flex items-center gap-1.5 text-slate-400 font-mono">
+                | Khoảng vân i = {((lambda1 * D) / (a * 1000)).toFixed(2)} mm
+              </span>
             </div>
-            <span>Các vạch hiển thị ở trục dưới biểu diễn độ rộng x (milimét).</span>
+            <span>Các vạch hiển thị ở trục dưới biểu diễn tọa độ x trên màn (milimét).</span>
           </div>
         </div>
       </div>
@@ -517,7 +578,7 @@ export default function LightInterferenceCanvas({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
           <div className="flex items-center gap-2.5">
             <Sliders className="h-6 w-6 text-blue-600" />
-            <h3 className="text-lg font-bold text-slate-900">Thông Số Giao Thoa</h3>
+            <h3 className="text-lg font-bold text-slate-900">Thông Số Giao Thoa Khe Young</h3>
           </div>
 
           <div className="flex items-center flex-wrap gap-2.5">
@@ -538,37 +599,6 @@ export default function LightInterferenceCanvas({
               Lưu số liệu quang học
             </button>
           </div>
-        </div>
-
-        {/* Mode Selector */}
-        <div className="flex flex-col sm:flex-row bg-slate-100 p-1.5 rounded-2xl border border-slate-200 gap-1">
-          <button
-            id="mode-light-single"
-            onClick={() => setParams({ ...params, mode: "single" })}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-bold rounded-xl transition-all cursor-pointer text-center ${
-              mode === "single"
-                ? "bg-white text-blue-700 shadow-sm"
-                : "text-slate-655 hover:text-slate-900"
-            }`}
-          >
-            <span className="h-3 w-3 rounded-full bg-blue-600 animate-pulse" />
-            1. Bắn 1 chùm sáng (Đơn sắc)
-          </button>
-          <button
-            id="mode-light-double"
-            onClick={() => setParams({ ...params, mode: "double" })}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-bold rounded-xl transition-all cursor-pointer text-center ${
-              mode === "double"
-                ? "bg-white text-indigo-700 shadow-sm"
-                : "text-slate-655 hover:text-slate-900"
-            }`}
-          >
-            <div className="flex gap-0.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-red-500 animate-pulse" />
-              <span className="h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse" />
-            </div>
-            2. Bắn 2 chùm sáng (Giao thoa trùng)
-          </button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-base">
@@ -630,94 +660,71 @@ export default function LightInterferenceCanvas({
           {/* Laser beams parameters */}
           <div className="space-y-5">
             <h4 className="font-bold text-slate-800 text-sm border-b border-slate-150 pb-2 uppercase tracking-wider">
-              {mode === "single" ? "Tùy chỉnh bước sóng (Đơn sắc)" : "Tùy chỉnh chùm bức xạ (2 bước sóng)"}
+              Tùy chỉnh bước sóng (Ánh sáng Đơn sắc)
             </h4>
 
             {/* Laser 1 setup */}
             <div className="space-y-2.5 bg-slate-50 p-4 rounded-xl border border-slate-200">
               <div className="flex items-center justify-between">
-                <label className="flex items-center gap-2.5 font-bold text-slate-800 text-sm cursor-pointer select-none">
-                  {mode === "double" && (
-                    <input
-                      id="checkbox-beam-1"
-                      type="checkbox"
-                      checked={showBeam1}
-                      onChange={(e) => setParams({ ...params, showBeam1: e.target.checked })}
-                      className="rounded text-blue-600 h-5 w-5 focus:ring-blue-500 cursor-pointer"
-                    />
-                  )}
-                  {mode === "single" ? "Chùm sáng giao thoa (Laser)" : "Chùm sáng 1 (Laser 1)"}
-                </label>
-                {showBeam1 && (
-                  <span className="font-mono text-xs text-white px-2.5 py-1 rounded-lg font-black shadow-sm" style={{ backgroundColor: `rgb(${wavelengthToRGBComponents(lambda1).r*200}, ${wavelengthToRGBComponents(lambda1).g*200}, ${wavelengthToRGBComponents(lambda1).b*200})` }}>
-                    {lambda1} nm
-                  </span>
-                )}
+                <span className="font-bold text-slate-800 text-sm">
+                  Chùm sáng Laser (Đơn sắc)
+                </span>
+                <span className="font-mono text-xs text-white px-2.5 py-1 rounded-lg font-black shadow-sm" style={{ backgroundColor: `rgb(${Math.round(wavelengthToRGBComponents(lambda1).r * 200)}, ${Math.round(wavelengthToRGBComponents(lambda1).g * 200)}, ${Math.round(wavelengthToRGBComponents(lambda1).b * 200)})` }}>
+                  {lambda1} nm
+                </span>
               </div>
               
-              {showBeam1 && (
-                <div className="mt-2 space-y-2">
-                  <input
-                    id="slider-light-lambda1"
-                    type="range"
-                    min="380"
-                    max="780"
-                    step="5"
-                    value={lambda1}
-                    onChange={(e) => setParams({ ...params, lambda1: parseInt(e.target.value) })}
-                    className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-600"
-                  />
-                  <div className="flex justify-between text-xs text-slate-450 font-mono">
-                    <span>380nm (Tím)</span>
-                    <span>530nm (Lục)</span>
-                    <span>780nm (Đỏ)</span>
-                  </div>
+              <div className="mt-2 space-y-2">
+                <input
+                  id="slider-light-lambda1"
+                  type="range"
+                  min="380"
+                  max="780"
+                  step="5"
+                  value={lambda1}
+                  onChange={(e) => setParams({ ...params, lambda1: parseInt(e.target.value) })}
+                  className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-600"
+                />
+                <div className="flex justify-between text-xs text-slate-450 font-mono">
+                  <span>380nm (Tím)</span>
+                  <span>530nm (Lục)</span>
+                  <span>780nm (Đỏ)</span>
                 </div>
-              )}
+              </div>
             </div>
 
-            {/* Laser 2 setup - only visible in double mode */}
-            {mode === "double" && (
-              <div className="space-y-2.5 bg-slate-50 p-4 rounded-xl border border-slate-200">
-                <div className="flex items-center justify-between">
-                  <label className="flex items-center gap-2.5 cursor-pointer font-bold text-slate-800 text-sm select-none">
-                    <input
-                      id="checkbox-beam-2"
-                      type="checkbox"
-                      checked={showBeam2}
-                      onChange={(e) => setParams({ ...params, showBeam2: e.target.checked })}
-                      className="rounded text-blue-600 h-5 w-5 focus:ring-blue-500"
-                    />
-                    Chùm sáng 2 (Laser 2)
-                  </label>
-                  {showBeam2 && (
-                    <span className="font-mono text-xs text-white px-2.5 py-1 rounded-lg font-black shadow-sm" style={{ backgroundColor: `rgb(${wavelengthToRGBComponents(lambda2).r*200}, ${wavelengthToRGBComponents(lambda2).g*200}, ${wavelengthToRGBComponents(lambda2).b*200})` }}>
-                      {lambda2} nm
-                    </span>
-                  )}
-                </div>
-                
-                {showBeam2 && (
-                  <div className="mt-2 space-y-2">
-                    <input
-                      id="slider-light-lambda2"
-                      type="range"
-                      min="380"
-                      max="780"
-                      step="5"
-                      value={lambda2}
-                      onChange={(e) => setParams({ ...params, lambda2: parseInt(e.target.value) })}
-                      className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-600"
-                    />
-                    <div className="flex justify-between text-xs text-slate-450 font-mono">
-                      <span>380nm (Tím)</span>
-                      <span>530nm (Lục)</span>
-                      <span>780nm (Đỏ)</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+            {/* Note box to keep layout proportional */}
+            <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 text-xs text-indigo-900 leading-relaxed space-y-1.5">
+              <span className="font-bold block text-indigo-950">Công thức xác định vân sáng:</span>
+              <p className="font-mono bg-white/70 p-2 rounded border border-indigo-100 text-center text-sm font-bold text-indigo-700">
+                x_sáng = k · i = k · (λ · D / a)
+              </p>
+              <p className="text-slate-500">
+                Thay đổi bước sóng <strong className="text-indigo-850">λ</strong>, khoảng cách khe <strong className="text-indigo-850">a</strong> hoặc khoảng cách màn <strong className="text-indigo-850">D</strong> để quan sát sự thay đổi tức thời của khoảng vân giao thoa.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Physical Correctness & Explanations Panel */}
+      <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5 space-y-3.5 shadow-sm text-sm text-blue-900">
+        <h4 className="font-bold flex items-center gap-2 text-blue-950 text-base">
+          <Info className="h-5 w-5 text-blue-600" />
+          Đảm bảo Tính Chính xác Vật lý (Physical Realism Assurance)
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-slate-700 leading-relaxed">
+          <div className="space-y-1.5">
+            <span className="font-bold text-blue-900 block">1. Hệ bao nhiễu xạ đơn khe (Single-slit Sinc Envelope):</span>
+            <p className="text-xs">
+              Mô phỏng áp dụng hàm điều biến <strong>Sinc²</strong> cho mỗi vân sáng. Trong thực tế, do khe hẹp có độ rộng hữu hạn <em>b</em>, cường độ sáng sẽ không đều vô hạn mà giảm dần khi đi xa tâm, tạo nên dải vân tối nhiễu xạ tự nhiên rất chính xác.
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <span className="font-bold text-blue-900 block">2. Bản chất Giao thoa Ánh sáng (Young's Slit Principle):</span>
+            <p className="text-xs">
+              Mỗi khe hẹp <strong className="text-blue-950">S₁</strong> và <strong className="text-blue-950">S₂</strong> đóng vai trò như một nguồn phát sóng ánh sáng thứ cấp đồng pha. Khi hai sóng này gặp nhau trên màn quan sát, chúng chồng chập và tạo ra các cực đại (vân sáng, tại hiệu đường đi bằng số nguyên lần bước sóng) và cực tiểu (vân tối, tại hiệu đường đi bằng số bán nguyên lần bước sóng).
+            </p>
           </div>
         </div>
       </div>
