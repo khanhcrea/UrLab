@@ -19,6 +19,7 @@ export default function SpringCanvas({ params, setParams, onSaveObservation }: S
   // Visualization options
   const [showVectors, setShowVectors] = useState(true);
   const [showEquilibrium, setShowEquilibrium] = useState(true);
+  const [showCoordinateAxis, setShowCoordinateAxis] = useState(true);
 
   // Refs for physics loop
   const stateRef = useRef({
@@ -200,6 +201,127 @@ export default function SpringCanvas({ params, setParams, onSaveObservation }: S
         ctx.restore();
       }
 
+      // Draw Coordinate Axis (Trục tọa độ thẳng đứng Oy từ -A đến A)
+      if (showCoordinateAxis) {
+        ctx.save();
+
+        const axisX = centerX - 120;
+        const amplitudeCm = Math.abs(params.initialX);
+        const pixelAmplitude = (amplitudeCm / 100) * scale; // 1000 px/m * (cm / 100)
+        const currentBlockY = equilibriumY + stateRef.current.x * scale;
+
+        // 1. Draw horizontal dashed projection line from block to the Axis
+        ctx.strokeStyle = "rgba(14, 165, 233, 0.25)";
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(centerX, currentBlockY);
+        ctx.lineTo(axisX, currentBlockY);
+        ctx.stroke();
+        ctx.setLineDash([]); // Reset line dash
+
+        // 2. Draw the Vertical Axis Line (Oy pointing downwards)
+        const axisTop = equilibriumY - Math.max(pixelAmplitude, 60) - 20;
+        const axisBottom = equilibriumY + Math.max(pixelAmplitude, 60) + 20;
+
+        ctx.strokeStyle = "rgba(148, 163, 184, 0.4)"; // Slate-400
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(axisX, axisTop);
+        ctx.lineTo(axisX, axisBottom + 15); // extend bottom for arrow head
+        ctx.stroke();
+
+        // Arrow head pointing downwards (positive direction)
+        ctx.fillStyle = "rgba(148, 163, 184, 0.6)";
+        ctx.beginPath();
+        ctx.moveTo(axisX, axisBottom + 15);
+        ctx.lineTo(axisX - 4, axisBottom + 7);
+        ctx.lineTo(axisX + 4, axisBottom + 7);
+        ctx.closePath();
+        ctx.fill();
+
+        // Label for axis variable "x" at the bottom
+        ctx.fillStyle = "#cbd5e1"; // Slate-300
+        ctx.font = "italic bold 14px sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "top";
+        ctx.fillText("x (cm)", axisX, axisBottom + 22);
+
+        // 3. Draw tick marks and labels
+        ctx.fillStyle = "#cbd5e1"; // Higher contrast text color
+        ctx.font = "bold 12px monospace";
+        ctx.textAlign = "right";
+        ctx.textBaseline = "middle";
+        ctx.lineWidth = 1.5;
+
+        // Equilibrium position (0)
+        ctx.strokeStyle = "rgba(148, 163, 184, 0.5)";
+        ctx.beginPath();
+        ctx.moveTo(axisX - 7, equilibriumY);
+        ctx.lineTo(axisX + 7, equilibriumY);
+        ctx.stroke();
+        
+        ctx.fillStyle = "#cbd5e1";
+        ctx.fillText("0 (VTCB)", axisX - 10, equilibriumY);
+
+        // If amplitude is non-zero, draw -A and +A ticks
+        if (pixelAmplitude > 1) {
+          // Negative Amplitude (-A) - Upper bound for compression
+          ctx.strokeStyle = "#ef4444"; // red for upper bound
+          ctx.beginPath();
+          ctx.moveTo(axisX - 7, equilibriumY - pixelAmplitude);
+          ctx.lineTo(axisX + 7, equilibriumY - pixelAmplitude);
+          ctx.stroke();
+
+          ctx.fillStyle = "#fca5a5"; // soft red
+          ctx.font = "bold 13px monospace";
+          ctx.fillText("-A", axisX - 10, equilibriumY - pixelAmplitude);
+          ctx.font = "bold 11px monospace";
+          ctx.fillStyle = "#ef4444";
+          ctx.fillText(`-${amplitudeCm}cm`, axisX - 10, equilibriumY - pixelAmplitude + 14);
+
+          // Positive Amplitude (+A) - Lower bound for stretch
+          ctx.strokeStyle = "#22c55e"; // green for lower bound
+          ctx.beginPath();
+          ctx.moveTo(axisX - 7, equilibriumY + pixelAmplitude);
+          ctx.lineTo(axisX + 7, equilibriumY + pixelAmplitude);
+          ctx.stroke();
+
+          ctx.font = "bold 13px monospace";
+          ctx.fillStyle = "#86efac"; // soft green
+          ctx.fillText("+A", axisX - 10, equilibriumY + pixelAmplitude);
+          ctx.font = "bold 11px monospace";
+          ctx.fillStyle = "#22c55e";
+          ctx.fillText(`+${amplitudeCm}cm`, axisX - 10, equilibriumY + pixelAmplitude + 14);
+        }
+
+        // 4. Draw current position marker on the vertical axis
+        const currentXCm = stateRef.current.x * 100;
+        
+        // Draw a distinct glowing dot representing current x(t)
+        ctx.shadowColor = "#38bdf8"; // Sky-400 glow
+        ctx.shadowBlur = 8;
+        ctx.fillStyle = "#0284c7"; // Sky-600
+        ctx.strokeStyle = "#38bdf8"; // Sky-400 border
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(axisX, currentBlockY, 6, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.stroke();
+
+        // Reset shadow for subsequent draws
+        ctx.shadowBlur = 0;
+
+        // Label for current position x(t) value to the right of the axis
+        ctx.fillStyle = "#38bdf8";
+        ctx.font = "bold 13px monospace";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "middle";
+        ctx.fillText(`x = ${currentXCm >= 0 ? "+" : ""}${currentXCm.toFixed(1)}cm`, axisX + 12, currentBlockY);
+
+        ctx.restore();
+      }
+
       animationFrameId = requestAnimationFrame(updateSimulation);
     };
 
@@ -236,7 +358,7 @@ export default function SpringCanvas({ params, setParams, onSaveObservation }: S
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
-  }, [params, showVectors, showEquilibrium]);
+  }, [params, showVectors, showEquilibrium, showCoordinateAxis]);
 
   // Handle Drag-and-drop to pull mass down or push it up
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -329,35 +451,57 @@ export default function SpringCanvas({ params, setParams, onSaveObservation }: S
   return (
     <div className="flex flex-col gap-5">
       {/* Simulation Viewport */}
-      <div className="relative bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
-        {/* Status Bar */}
-        <div className="absolute top-3 left-4 right-4 z-10 flex items-center justify-between text-xs font-mono text-slate-400 pointer-events-none">
-          <div className="flex gap-4">
-            <span>Li độ (x): <strong className="text-teal-400">{(x * 100).toFixed(1)} cm</strong></span>
-            <span>Vận tốc (v): <strong className="text-green-400">{(v * 100).toFixed(1)} cm/s</strong></span>
+      <div className="bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
+        <div className="flex flex-col lg:flex-row border-b border-slate-800">
+          {/* Real-time Parameters Dashboard - Structured Sidebar layout, NO OVERLAP */}
+          <div className="w-full lg:w-[240px] bg-slate-900/40 p-5 border-b lg:border-b-0 lg:border-r border-slate-800/80 flex flex-col justify-center shrink-0 select-none">
+            <span className="text-xs uppercase font-black text-slate-400 tracking-wider flex items-center gap-1.5 border-b border-slate-800/80 pb-2 mb-3">
+              <Activity className="h-4 w-4 text-red-500 animate-pulse" />
+              Bảng số liệu thời gian thực
+            </span>
+            <div className="space-y-3 text-sm">
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-slate-400 font-medium">Li độ (x):</span>
+                <span className="font-mono text-base font-black text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                  {(x * 100).toFixed(1)} cm
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-slate-400 font-medium">Vận tốc (v):</span>
+                <span className="font-mono text-base font-black text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                  {(v * 100).toFixed(1)} cm/s
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-4 border-t border-slate-800/60 pt-2.5">
+                <span className="text-slate-400 font-medium">Chu kỳ lý thuyết T:</span>
+                <span className="font-mono text-base font-black text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20">
+                  {theoreticalPeriod.toFixed(3)}s
+                </span>
+              </div>
+            </div>
+            <div className="text-[10px] text-slate-500 leading-normal border-t border-slate-800/40 pt-2.5 mt-3 font-sans">
+              * Kéo thả khối kim loại để chỉnh li độ x₀
+            </div>
           </div>
-          <span className="hidden sm:inline bg-slate-900/90 px-2 py-0.5 rounded text-slate-500 border border-slate-800/60">
-            Kéo thả khối kim loại để chỉnh li độ ban đầu!
-          </span>
-        </div>
 
-        {/* Canvas Area */}
-        <div className="w-full flex justify-center bg-radial from-slate-900 to-slate-950">
-          <canvas
-            id="spring-simulation-canvas"
-            ref={canvasRef}
-            width={480}
-            height={360}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUpOrLeave}
-            onMouseLeave={handleMouseUpOrLeave}
-            className="w-full max-w-[480px] h-[360px] cursor-grab active:cursor-grabbing block"
-          />
+          {/* Canvas Area */}
+          <div className="flex-1 flex justify-center bg-radial from-slate-900 to-slate-950 p-4 items-center">
+            <canvas
+              id="spring-simulation-canvas"
+              ref={canvasRef}
+              width={480}
+              height={360}
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUpOrLeave}
+              onMouseLeave={handleMouseUpOrLeave}
+              className="w-full max-w-[480px] h-[360px] cursor-grab active:cursor-grabbing block"
+            />
+          </div>
         </div>
 
         {/* Energy bar overlays */}
-        <div className="bg-slate-900/90 border-t border-slate-800 p-4">
+        <div className="bg-slate-900/90 p-4">
           <h4 className="text-xs font-bold text-slate-350 mb-2 flex items-center gap-1.5">
             <Activity className="h-3.5 w-3.5 text-blue-400" />
             Biểu Đồ Năng Lượng Dao Động (Oscillator Energy)
@@ -456,7 +600,7 @@ export default function SpringCanvas({ params, setParams, onSaveObservation }: S
           <div className="space-y-2">
             <div className="flex justify-between items-center">
               <label htmlFor="slider-spring-k" className="font-bold text-slate-755 text-base">Độ cứng lò xo (k)</label>
-              <span className="font-mono text-sm text-blue-600 bg-blue-50 px-2.5 py-1 rounded font-black">
+              <span className="font-mono text-base text-blue-700 bg-blue-50 px-3.5 py-1.5 rounded-lg font-black border border-blue-250 shadow-sm">
                 {params.k} N/m
               </span>
             </div>
@@ -480,7 +624,7 @@ export default function SpringCanvas({ params, setParams, onSaveObservation }: S
           <div className="space-y-2">
             <div className="flex justify-between items-center">
               <label htmlFor="slider-spring-mass" className="font-bold text-slate-755 text-base">Khối lượng vật nặng (m)</label>
-              <span className="font-mono text-sm text-blue-600 bg-blue-50 px-2.5 py-1 rounded font-black">
+              <span className="font-mono text-base text-blue-700 bg-blue-50 px-3.5 py-1.5 rounded-lg font-black border border-blue-250 shadow-sm">
                 {params.mass.toFixed(2)} kg
               </span>
             </div>
@@ -504,7 +648,7 @@ export default function SpringCanvas({ params, setParams, onSaveObservation }: S
           <div className="space-y-2">
             <div className="flex justify-between items-center">
               <label htmlFor="slider-spring-x0" className="font-bold text-slate-755 text-base">Li độ ban đầu (x₀)</label>
-              <span className="font-mono text-sm text-blue-600 bg-blue-50 px-2.5 py-1 rounded font-black">
+              <span className="font-mono text-base text-blue-700 bg-blue-50 px-3.5 py-1.5 rounded-lg font-black border border-blue-250 shadow-sm">
                 {params.initialX} cm
               </span>
             </div>
@@ -534,7 +678,7 @@ export default function SpringCanvas({ params, setParams, onSaveObservation }: S
                   <Info className="h-4 w-4" />
                 </span>
               </label>
-              <span className="font-mono text-sm text-blue-600 bg-blue-50 px-2.5 py-1 rounded font-black">
+              <span className="font-mono text-base text-blue-700 bg-blue-50 px-3.5 py-1.5 rounded-lg font-black border border-blue-250 shadow-sm">
                 {params.damping.toFixed(2)}
               </span>
             </div>
@@ -555,7 +699,7 @@ export default function SpringCanvas({ params, setParams, onSaveObservation }: S
           </div>
 
           {/* Visualization Toggles */}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-6 pt-4 text-base">
+          <div className="flex flex-col lg:flex-row lg:items-center gap-6 pt-4 text-base">
             <label className="flex items-center gap-2.5 cursor-pointer text-slate-750 select-none">
               <input
                 id="spring-toggle-vectors"
@@ -575,6 +719,16 @@ export default function SpringCanvas({ params, setParams, onSaveObservation }: S
                 className="rounded text-blue-600 focus:ring-blue-500 h-5 w-5"
               />
               <span className="font-bold text-slate-850">Hiện Vị trí cân bằng</span>
+            </label>
+            <label className="flex items-center gap-2.5 cursor-pointer text-slate-750 select-none">
+              <input
+                id="spring-toggle-coordinate-axis"
+                type="checkbox"
+                checked={showCoordinateAxis}
+                onChange={(e) => setShowCoordinateAxis(e.target.checked)}
+                className="rounded text-blue-600 focus:ring-blue-500 h-5 w-5"
+              />
+              <span className="font-bold text-slate-850">Hiện Trục tọa độ (-A đến A)</span>
             </label>
           </div>
         </div>

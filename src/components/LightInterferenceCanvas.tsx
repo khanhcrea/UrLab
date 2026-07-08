@@ -183,8 +183,8 @@ export default function LightInterferenceCanvas({
 
     // Label for S0
     ctx.fillStyle = "#cbd5e1";
-    ctx.font = "bold 9px monospace";
-    ctx.fillText("S0", sourceX - 18, centerY + 3);
+    ctx.font = "bold 12px monospace";
+    ctx.fillText("S0", sourceX - 22, centerY + 4);
     ctx.restore();
 
     // 1.5. Draw Coherent Waves Propagation from S0 to the double slits S1, S2
@@ -294,11 +294,11 @@ export default function LightInterferenceCanvas({
 
     // Label slits
     ctx.fillStyle = "#cbd5e1";
-    ctx.font = "bold 9px monospace";
-    ctx.fillText("S1", slitsX - 20, slit1Y + 3);
-    ctx.fillText("S2", slitsX - 20, slit2Y + 3);
-    ctx.fillStyle = "#94a3b8";
-    ctx.fillText(`a = ${a.toFixed(1)}mm`, slitsX - 25, centerY - 38);
+    ctx.font = "bold 12px monospace";
+    ctx.fillText("S1", slitsX - 24, slit1Y + 4);
+    ctx.fillText("S2", slitsX - 24, slit2Y + 4);
+    ctx.fillStyle = "#cbd5e1";
+    ctx.fillText(`a = ${a.toFixed(1)}mm`, slitsX - 28, centerY - 38);
 
     // 4. Draw Screen Projector Line
     ctx.fillStyle = "#000000"; // Deep black background for the projection screen
@@ -328,8 +328,8 @@ export default function LightInterferenceCanvas({
     ctx.save();
     ctx.translate(screenX + 24, centerY);
     ctx.rotate(Math.PI / 2);
-    ctx.fillStyle = "#94a3b8";
-    ctx.font = "10px sans-serif";
+    ctx.fillStyle = "#cbd5e1";
+    ctx.font = "bold 12px sans-serif";
     ctx.textAlign = "center";
     ctx.fillText("MÀN QUAN SÁT", 0, 0);
     ctx.restore();
@@ -355,7 +355,7 @@ export default function LightInterferenceCanvas({
     ctx.lineTo(screenX - 6, height - 12);
     ctx.fill();
     
-    ctx.font = "10px sans-serif";
+    ctx.font = "bold 12px sans-serif";
     ctx.fillText(`D = ${D.toFixed(1)} m`, (slitsX + screenX) / 2 - 20, height - 20);
     ctx.restore();
 
@@ -431,8 +431,8 @@ export default function LightInterferenceCanvas({
       ctx.stroke();
 
       // label mm
-      ctx.fillStyle = "#64748b";
-      ctx.font = "9px monospace";
+      ctx.fillStyle = "#cbd5e1";
+      ctx.font = "bold 11px monospace";
       ctx.textAlign = "center";
       ctx.fillText(`${mm > 0 ? "+" : ""}${mm}`, pX, height - 8);
     }
@@ -450,8 +450,8 @@ export default function LightInterferenceCanvas({
       ctx.lineTo(width, pY);
       ctx.stroke();
 
-      ctx.fillStyle = "#94a3b8";
-      ctx.font = "8px monospace";
+      ctx.fillStyle = "#cbd5e1";
+      ctx.font = "bold 10px monospace";
       ctx.textAlign = "left";
       ctx.fillText(item.label, 6, pY - 3);
     }
@@ -504,8 +504,8 @@ export default function LightInterferenceCanvas({
 
     // Small center text
     ctx.fillStyle = "#ef4444";
-    ctx.font = "bold 9px sans-serif";
-    ctx.fillText("Vân trung tâm (x = 0)", halfWidth + 5, screenProjHeight - 10);
+    ctx.font = "bold 12px sans-serif";
+    ctx.fillText("Vân trung tâm (x = 0)", halfWidth + 8, screenProjHeight - 12);
 
   }, [params]);
 
@@ -521,7 +521,7 @@ export default function LightInterferenceCanvas({
   return (
     <div className="flex flex-col gap-5">
       {/* Simulation Viewport Panels */}
-      <div className="relative bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-xl flex flex-col">
+      <div className="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-xl flex flex-col">
         {/* Visual Lab Space Header */}
         <div className="bg-slate-950 p-3.5 border-b border-slate-850 flex items-center justify-between text-xs text-slate-300">
           <span className="flex items-center gap-1.5 font-bold">
@@ -533,14 +533,53 @@ export default function LightInterferenceCanvas({
           </span>
         </div>
 
-        {/* Lab Schematic */}
-        <div className="w-full flex justify-center bg-slate-950">
-          <canvas
-            ref={canvasRef}
-            width={520}
-            height={200}
-            className="w-full max-w-[520px] h-[200px] block"
-          />
+        <div className="flex flex-col lg:flex-row bg-slate-950 border-b border-slate-850">
+          {/* Real-time Parameters Dashboard - Structured Sidebar layout, NO OVERLAP */}
+          <div className="w-full lg:w-[240px] bg-slate-900/40 p-5 border-b lg:border-b-0 lg:border-r border-slate-800/80 flex flex-col justify-center shrink-0 select-none">
+            <span className="text-xs uppercase font-black text-slate-400 tracking-wider flex items-center gap-1.5 border-b border-slate-800 pb-2 mb-3">
+              <Sparkles className="h-4 w-4 text-amber-500 animate-pulse" />
+              Bảng số liệu quang học
+            </span>
+            <div className="space-y-3 text-sm">
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-slate-400 font-medium">Khoảng vân i:</span>
+                <span className="font-mono text-base font-black text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                  {fringeWidth1.toFixed(3)} mm
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-slate-400 font-medium">Bước sóng λ:</span>
+                <span className="font-mono text-base font-black text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                  {lambda1} nm
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-4 border-t border-slate-800/60 pt-2.5">
+                <span className="text-slate-400 font-medium">Khoảng cách a:</span>
+                <span className="font-mono text-base font-black text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20">
+                  {a.toFixed(2)} mm
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-slate-400 font-medium">Khoảng cách D:</span>
+                <span className="font-mono text-base font-black text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
+                  {D.toFixed(1)} m
+                </span>
+              </div>
+            </div>
+            <div className="text-[10px] text-slate-500 leading-normal border-t border-slate-800/40 pt-2.5 mt-3 font-sans">
+              * Thay đổi các thanh trượt phía dưới để cập nhật
+            </div>
+          </div>
+
+          {/* Lab Schematic */}
+          <div className="flex-1 flex justify-center bg-slate-950 p-4 items-center">
+            <canvas
+              ref={canvasRef}
+              width={520}
+              height={200}
+              className="w-full max-w-[520px] h-[200px] block"
+            />
+          </div>
         </div>
 
         {/* Real-time Fringes Projector & Plot */}
@@ -612,7 +651,7 @@ export default function LightInterferenceCanvas({
             <div className="space-y-2">
               <div className="flex justify-between items-center">
                 <label htmlFor="slider-light-a" className="font-bold text-slate-755 text-base">Khoảng cách 2 khe (a)</label>
-                <span className="font-mono text-sm text-blue-600 bg-blue-50 px-2.5 py-1 rounded font-black">
+                <span className="font-mono text-base text-blue-700 bg-blue-50 px-3.5 py-1.5 rounded-lg font-black border border-blue-250 shadow-sm">
                   {a.toFixed(2)} mm
                 </span>
               </div>
@@ -636,7 +675,7 @@ export default function LightInterferenceCanvas({
             <div className="space-y-2">
               <div className="flex justify-between items-center">
                 <label htmlFor="slider-light-D" className="font-bold text-slate-755 text-base">Khoảng cách đến màn (D)</label>
-                <span className="font-mono text-sm text-blue-600 bg-blue-50 px-2.5 py-1 rounded font-black">
+                <span className="font-mono text-base text-blue-700 bg-blue-50 px-3.5 py-1.5 rounded-lg font-black border border-blue-250 shadow-sm">
                   {D.toFixed(1)} m
                 </span>
               </div>
@@ -666,10 +705,10 @@ export default function LightInterferenceCanvas({
             {/* Laser 1 setup */}
             <div className="space-y-2.5 bg-slate-50 p-4 rounded-xl border border-slate-200">
               <div className="flex items-center justify-between">
-                <span className="font-bold text-slate-800 text-sm">
+                <span className="font-bold text-slate-850 text-base">
                   Chùm sáng Laser (Đơn sắc)
                 </span>
-                <span className="font-mono text-xs text-white px-2.5 py-1 rounded-lg font-black shadow-sm" style={{ backgroundColor: `rgb(${Math.round(wavelengthToRGBComponents(lambda1).r * 200)}, ${Math.round(wavelengthToRGBComponents(lambda1).g * 200)}, ${Math.round(wavelengthToRGBComponents(lambda1).b * 200)})` }}>
+                <span className="font-mono text-sm text-white px-3.5 py-1.5 rounded-xl font-black shadow-md border border-slate-700/10" style={{ backgroundColor: `rgb(${Math.round(wavelengthToRGBComponents(lambda1).r * 200)}, ${Math.round(wavelengthToRGBComponents(lambda1).g * 200)}, ${Math.round(wavelengthToRGBComponents(lambda1).b * 200)})` }}>
                   {lambda1} nm
                 </span>
               </div>

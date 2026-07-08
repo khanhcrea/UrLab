@@ -19,6 +19,7 @@ export default function PendulumCanvas({ params, setParams, onSaveObservation }:
   // Custom View Options
   const [showVectors, setShowVectors] = useState(true);
   const [showProtractor, setShowProtractor] = useState(true);
+  const [showCoordinateAxis, setShowCoordinateAxis] = useState(true);
   const trailRef = useRef<{ x: number; y: number; opacity: number }[]>([]);
 
   // Refs for animation loop to avoid dependency lag
@@ -262,6 +263,130 @@ export default function PendulumCanvas({ params, setParams, onSaveObservation }:
         ctx.restore();
       }
 
+      // Draw Coordinate Axis (Trục tọa độ Ox từ -A đến A)
+      if (showCoordinateAxis) {
+        ctx.save();
+
+        const axisY = height - 25;
+        const theta0Rad = Math.abs((params.initialAngle * Math.PI) / 180);
+        const pixelAmplitude = pixelLength * Math.sin(theta0Rad);
+        const currentBobX = pivotX + pixelLength * Math.sin(stateRef.current.theta);
+
+        // Calculate actual amplitude in meters: A = L * sin(theta_0)
+        const amplitudeMeters = L * Math.sin(theta0Rad);
+
+        // 1. Draw projection dashed line from Bob center down to the Axis
+        ctx.strokeStyle = "rgba(14, 165, 233, 0.25)";
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(currentBobX, bobY);
+        ctx.lineTo(currentBobX, axisY);
+        ctx.stroke();
+        ctx.setLineDash([]); // Reset line dash
+
+        // 2. Draw the Main Axis Line
+        const axisLeft = pivotX - Math.max(pixelAmplitude, 60) - 20;
+        const axisRight = pivotX + Math.max(pixelAmplitude, 60) + 20;
+
+        ctx.strokeStyle = "rgba(148, 163, 184, 0.4)"; // Slate-400 with opacity
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(axisLeft, axisY);
+        ctx.lineTo(axisRight + 15, axisY); // extend right for arrow head
+        ctx.stroke();
+
+        // Arrow head for positive Ox direction
+        ctx.fillStyle = "rgba(148, 163, 184, 0.6)";
+        ctx.beginPath();
+        ctx.moveTo(axisRight + 15, axisY);
+        ctx.lineTo(axisRight + 7, axisY - 4);
+        ctx.lineTo(axisRight + 7, axisY + 4);
+        ctx.closePath();
+        ctx.fill();
+
+        // Label for axis variable "x" at the right
+        ctx.fillStyle = "#cbd5e1"; // Slate-300
+        ctx.font = "italic bold 14px sans-serif";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "middle";
+        ctx.fillText("x (m)", axisRight + 20, axisY);
+
+        // 3. Draw tick marks and labels
+        ctx.fillStyle = "#cbd5e1"; // Higher contrast text color
+        ctx.font = "bold 12px monospace";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "top";
+        ctx.lineWidth = 1.5;
+
+        // Equilibrium position (0)
+        ctx.strokeStyle = "rgba(148, 163, 184, 0.5)";
+        ctx.beginPath();
+        ctx.moveTo(pivotX, axisY - 7);
+        ctx.lineTo(pivotX, axisY + 7);
+        ctx.stroke();
+        
+        ctx.fillStyle = "#cbd5e1";
+        ctx.fillText("0 (VTCB)", pivotX, axisY + 8);
+
+        // If amplitude is non-zero, draw -A and +A ticks
+        if (pixelAmplitude > 1) {
+          // Negative Amplitude (-A)
+          ctx.strokeStyle = "#ef4444"; // red for negative bound
+          ctx.beginPath();
+          ctx.moveTo(pivotX - pixelAmplitude, axisY - 7);
+          ctx.lineTo(pivotX - pixelAmplitude, axisY + 7);
+          ctx.stroke();
+
+          ctx.fillStyle = "#fca5a5"; // soft red
+          ctx.font = "bold 13px monospace";
+          ctx.fillText("-A", pivotX - pixelAmplitude, axisY + 8);
+          ctx.font = "bold 11px monospace";
+          ctx.fillStyle = "#ef4444";
+          ctx.fillText(`-${amplitudeMeters.toFixed(2)}m`, pivotX - pixelAmplitude, axisY + 22);
+
+          // Positive Amplitude (+A)
+          ctx.strokeStyle = "#22c55e"; // green for positive bound
+          ctx.beginPath();
+          ctx.moveTo(pivotX + pixelAmplitude, axisY - 7);
+          ctx.lineTo(pivotX + pixelAmplitude, axisY + 7);
+          ctx.stroke();
+
+          ctx.font = "bold 13px monospace";
+          ctx.fillStyle = "#86efac"; // soft green
+          ctx.fillText("+A", pivotX + pixelAmplitude, axisY + 8);
+          ctx.font = "bold 11px monospace";
+          ctx.fillStyle = "#22c55e";
+          ctx.fillText(`+${amplitudeMeters.toFixed(2)}m`, pivotX + pixelAmplitude, axisY + 22);
+        }
+
+        // 4. Draw current position marker on the axis
+        const currentXMeters = L * Math.sin(stateRef.current.theta);
+        
+        // Draw a distinct glowing dot representing current x(t)
+        ctx.shadowColor = "#38bdf8"; // Sky-400 glow
+        ctx.shadowBlur = 8;
+        ctx.fillStyle = "#0284c7"; // Sky-600
+        ctx.strokeStyle = "#38bdf8"; // Sky-400 border
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(currentBobX, axisY, 6, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.stroke();
+
+        // Reset shadow for subsequent draws
+        ctx.shadowBlur = 0;
+
+        // Label for current position x(t) value above the axis
+        ctx.fillStyle = "#38bdf8";
+        ctx.font = "bold 13px monospace";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "bottom";
+        ctx.fillText(`x = ${currentXMeters >= 0 ? "+" : ""}${currentXMeters.toFixed(2)}m`, currentBobX, axisY - 8);
+
+        ctx.restore();
+      }
+
       animationFrameId = requestAnimationFrame(updateSimulation);
     };
 
@@ -299,7 +424,7 @@ export default function PendulumCanvas({ params, setParams, onSaveObservation }:
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
-  }, [params, showVectors, showProtractor]);
+  }, [params, showVectors, showProtractor, showCoordinateAxis]);
 
   // Handle Drag-and-drop to pull the pendulum bob
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -417,35 +542,57 @@ export default function PendulumCanvas({ params, setParams, onSaveObservation }:
   return (
     <div className="flex flex-col gap-5">
       {/* Simulation Box */}
-      <div className="relative bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
-        {/* Top Status Bar overlay */}
-        <div className="absolute top-3 left-4 right-4 z-10 flex items-center justify-between text-xs font-mono text-slate-400 pointer-events-none">
-          <div className="flex gap-4">
-            <span>Góc hiện tại: <strong className="text-teal-400">{Math.round((theta * 180) / Math.PI)}°</strong></span>
-            <span>Vận tốc góc: <strong className="text-green-400">{omega.toFixed(2)} rad/s</strong></span>
+      <div className="bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
+        <div className="flex flex-col lg:flex-row border-b border-slate-800">
+          {/* Real-time Parameters Dashboard - Structured Sidebar layout, NO OVERLAP */}
+          <div className="w-full lg:w-[240px] bg-slate-900/40 p-5 border-b lg:border-b-0 lg:border-r border-slate-800/80 flex flex-col justify-center shrink-0 select-none">
+            <span className="text-xs uppercase font-black text-slate-400 tracking-wider flex items-center gap-1.5 border-b border-slate-800/80 pb-2 mb-3">
+              <Activity className="h-4 w-4 text-red-500 animate-pulse" />
+              Bảng số liệu thời gian thực
+            </span>
+            <div className="space-y-3 text-sm">
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-slate-400 font-medium">Li độ góc θ:</span>
+                <span className="font-mono text-base font-black text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                  {Math.round((theta * 180) / Math.PI)}°
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-slate-400 font-medium">Vận tốc góc ω:</span>
+                <span className="font-mono text-base font-black text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                  {omega.toFixed(2)} rad/s
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-4 border-t border-slate-800/60 pt-2.5">
+                <span className="text-slate-400 font-medium">Chu kỳ lý thuyết T:</span>
+                <span className="font-mono text-base font-black text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20">
+                  {theoreticalPeriod.toFixed(3)}s
+                </span>
+              </div>
+            </div>
+            <div className="text-[10px] text-slate-500 leading-normal border-t border-slate-800/40 pt-2.5 mt-3 font-sans">
+              * Nhấp kéo thả quả nặng để chỉnh θ₀
+            </div>
           </div>
-          <span className="hidden sm:inline bg-slate-900/90 px-2 py-0.5 rounded text-slate-500 border border-slate-800/60">
-            Kéo thả quả cầu để thử nghiệm góc mới!
-          </span>
-        </div>
 
-        {/* Physics HTML5 Canvas */}
-        <div className="w-full flex justify-center bg-radial from-slate-900 to-slate-950">
-          <canvas
-            id="pendulum-simulation-canvas"
-            ref={canvasRef}
-            width={480}
-            height={360}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUpOrLeave}
-            onMouseLeave={handleMouseUpOrLeave}
-            className="w-full max-w-[480px] h-[360px] cursor-grab active:cursor-grabbing block"
-          />
+          {/* Physics HTML5 Canvas */}
+          <div className="flex-1 flex justify-center bg-radial from-slate-900 to-slate-950 p-4 items-center">
+            <canvas
+              id="pendulum-simulation-canvas"
+              ref={canvasRef}
+              width={480}
+              height={360}
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUpOrLeave}
+              onMouseLeave={handleMouseUpOrLeave}
+              className="w-full max-w-[480px] h-[360px] cursor-grab active:cursor-grabbing block"
+            />
+          </div>
         </div>
 
         {/* Dynamic Energy Bar Overlay at bottom */}
-        <div className="bg-slate-900/90 border-t border-slate-800 p-4">
+        <div className="bg-slate-900/90 p-4">
           <h4 className="text-xs font-bold text-slate-350 mb-2 flex items-center gap-1.5">
             <Activity className="h-3.5 w-3.5 text-blue-400" />
             Biểu Đồ Bảo Toàn Cơ Năng (Mechanical Energy)
@@ -550,7 +697,7 @@ export default function PendulumCanvas({ params, setParams, onSaveObservation }:
                 Chiều dài dây treo (L)
                 <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded font-mono font-medium">Sổ tay</span>
               </label>
-              <span className="font-mono text-sm text-blue-600 bg-blue-50 px-2.5 py-1 rounded font-black">
+              <span className="font-mono text-base text-blue-700 bg-blue-50 px-3.5 py-1.5 rounded-lg font-black border border-blue-250 shadow-sm">
                 {params.length.toFixed(2)} m
               </span>
             </div>
@@ -574,7 +721,7 @@ export default function PendulumCanvas({ params, setParams, onSaveObservation }:
           <div className="space-y-2">
             <div className="flex justify-between items-center">
               <label htmlFor="slider-gravity" className="font-bold text-slate-755 text-base">Gia tốc trọng trường (g)</label>
-              <span className="font-mono text-sm text-blue-600 bg-blue-50 px-2.5 py-1 rounded font-black">
+              <span className="font-mono text-base text-blue-700 bg-blue-50 px-3.5 py-1.5 rounded-lg font-black border border-blue-250 shadow-sm">
                 {params.gravity.toFixed(2)} m/s²
               </span>
             </div>
@@ -601,7 +748,7 @@ export default function PendulumCanvas({ params, setParams, onSaveObservation }:
           <div className="space-y-2">
             <div className="flex justify-between items-center">
               <label htmlFor="slider-angle" className="font-bold text-slate-755 text-base">Góc lệch cực đại (θ₀)</label>
-              <span className="font-mono text-sm text-blue-600 bg-blue-50 px-2.5 py-1 rounded font-black">
+              <span className="font-mono text-base text-blue-700 bg-blue-50 px-3.5 py-1.5 rounded-lg font-black border border-blue-250 shadow-sm">
                 {params.initialAngle}°
               </span>
             </div>
@@ -626,7 +773,7 @@ export default function PendulumCanvas({ params, setParams, onSaveObservation }:
           <div className="space-y-2">
             <div className="flex justify-between items-center">
               <label htmlFor="slider-mass" className="font-bold text-slate-755 text-base">Khối lượng quả nặng (m)</label>
-              <span className="font-mono text-sm text-blue-600 bg-blue-50 px-2.5 py-1 rounded font-black">
+              <span className="font-mono text-base text-blue-700 bg-blue-50 px-3.5 py-1.5 rounded-lg font-black border border-blue-250 shadow-sm">
                 {params.mass.toFixed(1)} kg
               </span>
             </div>
@@ -655,7 +802,7 @@ export default function PendulumCanvas({ params, setParams, onSaveObservation }:
                   <Info className="h-4 w-4" />
                 </span>
               </label>
-              <span className="font-mono text-sm text-blue-600 bg-blue-50 px-2.5 py-1 rounded font-black">
+              <span className="font-mono text-base text-blue-700 bg-blue-50 px-3.5 py-1.5 rounded-lg font-black border border-blue-250 shadow-sm">
                 {params.damping.toFixed(2)}
               </span>
             </div>
@@ -676,7 +823,7 @@ export default function PendulumCanvas({ params, setParams, onSaveObservation }:
           </div>
 
           {/* Visualization toggles */}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-6 pt-4 text-base">
+          <div className="flex flex-col lg:flex-row lg:items-center gap-6 pt-4 text-base">
             <label className="flex items-center gap-2.5 cursor-pointer text-slate-750 select-none">
               <input
                 id="toggle-vectors"
@@ -696,6 +843,16 @@ export default function PendulumCanvas({ params, setParams, onSaveObservation }:
                 className="rounded text-blue-600 focus:ring-blue-500 h-5 w-5"
               />
               <span className="font-bold text-slate-850">Hiện Thước đo độ</span>
+            </label>
+            <label className="flex items-center gap-2.5 cursor-pointer text-slate-750 select-none">
+              <input
+                id="toggle-coordinate-axis"
+                type="checkbox"
+                checked={showCoordinateAxis}
+                onChange={(e) => setShowCoordinateAxis(e.target.checked)}
+                className="rounded text-blue-600 focus:ring-blue-500 h-5 w-5"
+              />
+              <span className="font-bold text-slate-850">Hiện Trục tọa độ (-A đến A)</span>
             </label>
           </div>
         </div>
