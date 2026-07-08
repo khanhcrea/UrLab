@@ -223,23 +223,26 @@ Tính toán lý thuyết tương ứng:
       stateContext += `\nLưu ý: Bạn hãy chủ động nhắc đến những con số cụ thể này khi học sinh hỏi những câu hỏi có tính chất chung chung hoặc khi muốn hướng dẫn họ thực hành trực tiếp ngay trên màn hình!\n---------------------------------------------------------------\n`;
     }
 
-    const systemInstruction = `You are "UrLab Tutor" - an expert, encouraging, and highly accurate AI Physics Tutor for 11th-grade students.
+    const systemInstruction = `You are "UrLab Tutor" - an expert, encouraging, and highly accurate AI Physics Tutor for 11th-grade students, strictly following the textbook "Sách giáo khoa Vật lý 11 - Kết nối tri thức với cuộc sống".
 CRITICAL INSTRUCTIONS FOR QUALITY, ACCURACY, AND BREVITY:
 1. DIRECTNESS & NO RAMBLING (ĐÚNG TRỌNG TÂM, KHÔNG LAN MAN): Answer the student's question directly in the very first sentence. Avoid wordy introductions, long preambles, or excessive filler text. Keep answers brief, concise, and highly structured using bullet points or short paragraphs. Do not repeat facts unnecessarily. This maximizes speed and precision!
-2. ABSOLUTE SCIENTIFIC ACCURACY (TRẢ LỜI ĐÚNG KIẾN THỨC VẬT LÝ): Ensure all physics principles, formulas, definitions, and derivations are 100% accurate, precise, and rigorous according to high school physics standards. 
-   - Simple Pendulum (Con lắc đơn): Period T = 2π·√(L/g) is independent of amplitude (for small oscillations) and mass m.
-   - Spring-Mass System (Con lắc lò xo): Period T = 2π·√(m/k). Frequency f = (1/2π)·√(k/m).
-   - Light Waves & Young's Interference (Giao thoa ánh sáng khe Young): Fringe width i = (λ·D) / a. Distance from center to k-th bright fringe is x = k·i. Distance to k-th dark fringe is x = (k + 0.5)·i. 
-   - Mechanical Waves (Sóng cơ): λ = v / f = v·T.
+2. SGK KẾT NỐI TRI THỨC ALIGNMENT: Your explanations, definitions, and terminology must align perfectly with the lessons of the SGK Vật lý 11 Kết nối tri thức:
+   - Bài 5 (Động năng. Thế năng. Sự chuyển hoá năng lượng trong dao động điều hoà):
+     * Con lắc đơn (Simple Pendulum): Chu kỳ T = 2π·√(ℓ/g) (dùng kí hiệu ℓ cho chiều dài dây, không dùng L). Cơ năng con lắc đơn được bảo toàn W = W_đ + W_t = hằng số khi bỏ qua ma sát.
+     * Con lắc lò xo (Spring-Mass System): Chu kỳ riêng T = 2π·√(m/k). Cơ năng bảo toàn W = 1/2 mv² + 1/2 kx² = 1/2 kA² = hằng số.
+   - Bài 8 (Mô tả sóng) & Bài 9 (Sóng ngang. Sóng dọc. Sự truyền năng lượng của sóng): λ = v / f = v·T.
+   - Bài 12 (Giao thoa sóng): Hai nguồn sóng kết hợp. Cực đại giao thoa có hiệu đường truyền d₂ - d₁ = k·λ. Cực tiểu giao thoa có hiệu đường truyền d₂ - d₁ = (k + 0.5)·λ.
+   - Bài 14 (Giao thoa ánh sáng): Thí nghiệm khe Young. Khoảng vân i = (λ·D) / a. Vân sáng tại vị trí x_s = k·i. Vân tối tại vị trí x_t = (k + 0.5)·i.
 3. FORMULA FORMATTING RULE: Do NOT use LaTeX math notations (like \\frac, \\sqrt, \\pi, \\lambda, $ or $$) because the interface displays clean plain text / markdown. Always write formulas in clean Unicode:
-   * T = 2π·√(L/g)
+   * T = 2π·√(ℓ/g)
    * T = 2π·√(m/k)
    * i = (λ·D) / a
    * λ = v / f
    * k1·λ1 = k2·λ2
-   * x = k·i
+   * x_s = k·i
+   * x_t = (k + 0.5)·i
 4. LANGUAGE: If the student writes in Vietnamese, answer in clear, polite, natural, and standard Vietnamese. If in English, answer in English.
-5. INTERACTIVE CONNECTIONS: Relate the explanation directly to how the student can adjust sliders or variables on their screen (e.g., L, m, k, lambda, a, D) to witness the physics phenomenon live in UrLab. Use the actual live measurements/parameters provided in the state section below to personalize the instruction!${stateContext}`;
+5. INTERACTIVE CONNECTIONS: Relate the explanation directly to how the student can adjust sliders or variables on their screen (e.g., ℓ, m, k, lambda, a, D) to witness the physics phenomenon live in UrLab. Use the actual live measurements/parameters provided in the state section below to personalize the instruction!${stateContext}`;
 
     const formattedContents = [];
     if (history && Array.isArray(history)) {
@@ -320,7 +323,7 @@ CRITICAL INSTRUCTIONS FOR QUALITY, ACCURACY, AND BREVITY:
 - 👉 **Khoảng vân giao thoa lý thuyết: i = (λ·D)/a ≈ ${i} mm.**`;
         }
       } else {
-        fallbackText += `\n\n1. **Chu kỳ của con lắc đơn**: **T = 2π·√(L/g)**.
+        fallbackText += `\n\n1. **Chu kỳ của con lắc đơn**: **T = 2π·√(ℓ/g)**.
 2. **Chu kỳ con lắc lò xo**: **T = 2π·√(m/k)**.
 3. **Giao thoa ánh sáng**: Khoảng vân **i = (λ·D) / a**.`;
       }
@@ -344,15 +347,15 @@ app.post(["/api/quiz", "/quiz"], async (req, res) => {
   const mockQuizQuestions: Record<string, Array<{ question: string, options: string[], correctAnswer: number, explanation: string }>> = {
     pendulum: [
       {
-        question: "Một học sinh thực hiện thí nghiệm với con lắc đơn có chiều dài L. Nếu học sinh đó di chuyển thí nghiệm từ Trái Đất (g = 9.8 m/s²) lên Mặt Trăng (g_m = 1.62 m/s²) thì chu kỳ dao động T của con lắc sẽ biến đổi thế nào?",
+        question: "Một học sinh thực hiện thí nghiệm với con lắc đơn có chiều dài ℓ. Nếu học sinh đó di chuyển thí nghiệm từ Trái Đất (g = 9.8 m/s²) lên Mặt Trăng (g_m = 1.62 m/s²) thì chu kỳ dao động T của con lắc sẽ biến đổi thế nào?",
         options: [
           "Chu kỳ T sẽ tăng lên đáng kể vì gia tốc g giảm.",
           "Chu kỳ T sẽ giảm đi vì trọng lực yếu hơn.",
-          "Chu kỳ T giữ nguyên vì chiều dài L không đổi.",
+          "Chu kỳ T giữ nguyên vì chiều dài ℓ không đổi.",
           "Chu kỳ T sẽ bằng 0 vì trên Mặt Trăng không có khí quyển."
         ],
         correctAnswer: 0,
-        explanation: "Chu kỳ con lắc đơn được xác định bởi công thức T = 2π·√(L/g). Do gia tốc trọng trường g ở Mặt Trăng nhỏ hơn g ở Trái Đất, mẫu số g giảm làm cho giá trị phân số L/g tăng lên, dẫn đến chu kỳ T tăng lên. Lúc này con lắc sẽ dao động chậm hơn!"
+        explanation: "Chu kỳ con lắc đơn được xác định bởi công thức T = 2π·√(ℓ/g). Do gia tốc trọng trường g ở Mặt Trăng nhỏ hơn g ở Trái Đất, mẫu số g giảm làm cho giá trị phân số ℓ/g tăng lên, dẫn đến chu kỳ T tăng lên. Lúc này con lắc sẽ dao động chậm hơn!"
       },
       {
         question: "Lực đóng vai trò là lực kéo về (lực phục hồi) làm con lắc đơn dao động điều hòa quanh vị trí cân bằng (với góc lệch nhỏ) là lực nào?",
@@ -366,7 +369,7 @@ app.post(["/api/quiz", "/quiz"], async (req, res) => {
         explanation: "Lực kéo về của con lắc đơn chính là thành phần tiếp tuyến của trọng lực: Pt = -m·g·sin(θ). Lực này luôn hướng về vị trí cân bằng và kéo quả nặng quay lại khi lệch khỏi vị trí thấp nhất."
       },
       {
-        question: "Trong dao động điều hòa của con lắc đơn tại một nơi cố định, nếu tăng chiều dài dây treo L lên gấp 4 lần thì chu kỳ dao động riêng T thay đổi thế nào?",
+        question: "Trong dao động điều hòa của con lắc đơn tại một nơi cố định, nếu tăng chiều dài dây treo ℓ lên gấp 4 lần thì chu kỳ dao động riêng T thay đổi thế nào?",
         options: [
           "Chu kỳ T tăng lên gấp 4 lần.",
           "Chu kỳ T giảm đi 2 lần.",
@@ -374,21 +377,21 @@ app.post(["/api/quiz", "/quiz"], async (req, res) => {
           "Chu kỳ T không thay đổi."
         ],
         correctAnswer: 2,
-        explanation: "Theo công thức chu kỳ con lắc đơn T = 2π·√(L/g), chu kỳ T tỉ lệ thuận với căn bậc hai của chiều dài L. Khi L tăng lên 4 lần, √(L) tăng lên 2 lần, làm chu kỳ T tăng gấp 2 lần."
+        explanation: "Theo công thức chu kỳ con lắc đơn T = 2π·√(ℓ/g), chu kỳ T tỉ lệ thuận với căn bậc hai của chiều dài ℓ. Khi ℓ tăng lên 4 lần, √(ℓ) tăng lên 2 lần, làm chu kỳ T tăng gấp 2 lần."
       },
       {
         question: "Chu kỳ dao động điều hòa của con lắc đơn phụ thuộc vào yếu tố nào sau đây?",
         options: [
           "Khối lượng m của quả nặng.",
           "Biên độ dao động và góc lệch ban đầu cực đại.",
-          "Chiều dài dây treo L và gia tốc trọng trường g tại nơi treo.",
+          "Chiều dài dây treo ℓ và gia tốc trọng trường g tại nơi treo.",
           "Độ cứng của dây treo."
         ],
         correctAnswer: 2,
-        explanation: "Chu kỳ con lắc đơn dao động điều hòa nhỏ (góc lệch bé) chỉ phụ thuộc vào đặc tính hình học là chiều dài dây L và gia tốc trọng trường g tại nơi làm thí nghiệm: T = 2π·√(L/g). Nó không phụ thuộc vào khối lượng m hay biên độ."
+        explanation: "Chu kỳ con lắc đơn dao động điều hòa nhỏ (góc lệch bé) chỉ phụ thuộc vào đặc tính hình học là chiều dài dây ℓ và gia tốc trọng trường g tại nơi làm thí nghiệm: T = 2π·√(ℓ/g). Nó không phụ thuộc vào khối lượng m hay biên độ."
       },
       {
-        question: "Một con lắc đơn dao động điều hòa tại nơi có gia tốc g = 9.8 m/s² với dây treo dài L = 1.0 m. Chu kỳ dao động T xấp xỉ bằng bao nhiêu?",
+        question: "Một con lắc đơn dao động điều hòa tại nơi có gia tốc g = 9.8 m/s² với dây treo dài ℓ = 1.0 m. Chu kỳ dao động T xấp xỉ bằng bao nhiêu?",
         options: [
           "T ≈ 1.0 giây.",
           "T ≈ 2.0 giây.",
@@ -396,7 +399,7 @@ app.post(["/api/quiz", "/quiz"], async (req, res) => {
           "T ≈ 6.28 giây."
         ],
         correctAnswer: 1,
-        explanation: "Áp dụng công thức T = 2π·√(L/g) = 2 · 3.1416 · √(1 / 9.8) ≈ 2.0 giây. Đây được gọi là con lắc giây (có chu kỳ xấp xỉ 2 giây, tức mỗi giây thực hiện nửa chu kỳ)."
+        explanation: "Áp dụng công thức T = 2π·√(ℓ/g) = 2 · 3.1416 · √(1 / 9.8) ≈ 2.0 giây. Đây được gọi là con lắc giây (có chu kỳ xấp xỉ 2 giây, tức mỗi giây thực hiện nửa chu kỳ)."
       }
     ],
     spring: [

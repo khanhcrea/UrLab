@@ -13,7 +13,7 @@ export default function ChatBot({ activeExperiment, params }: ChatBotProps) {
     {
       id: "welcome",
       role: "assistant",
-      content: "Chào bạn! Tôi là **UrLab Physics Tutor** - Gia sư Vật lý thông minh của bạn. 🌟\n\nTôi ở đây để giúp bạn hiểu rõ các khái niệm về **Dao động (Chương 1)** và **Sóng (Chương 2)**. \n\nTôi đã được **đồng bộ trực tiếp** với các thông số mô phỏng trên màn hình của bạn! Bạn thay đổi các thanh trượt hay thông số gì, tôi đều sẽ nhìn thấy thời gian thực để trả lời chính xác nhất.\n\n*Ví dụ bạn có thể hỏi:*\n- *\"Hãy giải thích tại sao khi tăng chiều dài L thì chu kỳ con lắc T lại dài hơn?\"*\n- *\"Tính chu kỳ lý thuyết với số liệu tôi đang chạy trên màn hình đi!\"*\n- *\"Sóng dọc và sóng ngang khác nhau như thế nào?\"*\n\nHãy nhắn câu hỏi của bạn xuống bên dưới nhé!",
+      content: "Chào bạn! Tôi là **UrLab Physics Tutor** - Gia sư Vật lý thông minh của bạn. 🌟\n\nTôi ở đây để giúp bạn hiểu rõ các khái niệm về **Dao động (Chương 1)** và **Sóng (Chương 2)**. \n\nTôi đã được **đồng bộ trực tiếp** với các thông số mô phỏng trên màn hình của bạn! Bạn thay đổi các thanh trượt hay thông số gì, tôi đều sẽ nhìn thấy thời gian thực để trả lời chính xác nhất.\n\n*Ví dụ bạn có thể hỏi:*\n- *\"Hãy giải thích tại sao khi tăng chiều dài ℓ thì chu kỳ con lắc T lại dài hơn?\"*\n- *\"Tính chu kỳ lý thuyết với số liệu tôi đang chạy trên màn hình đi!\"*\n- *\"Sóng dọc và sóng ngang khác nhau như thế nào?\"*\n\nHãy nhắn câu hỏi của bạn xuống bên dưới nhé!",
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
   ]);

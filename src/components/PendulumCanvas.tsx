@@ -112,8 +112,8 @@ export default function PendulumCanvas({ params, setParams, onSaveObservation }:
       const pivotX = width / 2;
       const pivotY = 60;
       
-      // Scaling factor: map length L (meters) to pixels
-      const pixelLength = L * 85;
+      // Scaling factor: map length L (meters) to pixels (adjusted to 70 to prevent covering the axis labels at full length)
+      const pixelLength = L * 70;
       
       // Bob Coordinates
       const bobX = pivotX + pixelLength * Math.sin(stateRef.current.theta);
@@ -436,7 +436,7 @@ export default function PendulumCanvas({ params, setParams, onSaveObservation }:
 
     const pivotX = rect.width / 2;
     const pivotY = 60;
-    const pixelLength = params.length * 85;
+    const pixelLength = params.length * 70;
 
     const bobX = pivotX + pixelLength * Math.sin(stateRef.current.theta);
     const bobY = pivotY + pixelLength * Math.cos(stateRef.current.theta);

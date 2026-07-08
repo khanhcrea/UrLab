@@ -188,13 +188,13 @@ export default function HomeView({ onEnterLab }: HomeViewProps) {
             <div className="flex flex-col justify-between bg-slate-50 border border-slate-200 rounded-3xl p-8 sm:p-10 hover:border-blue-400 hover:shadow-xl transition-all group">
               <div className="space-y-5">
                 <span className="inline-flex rounded-full bg-blue-100 px-4 py-1.5 text-sm font-bold text-blue-800">
-                  Chương: Dao động
+                  Chương I: Dao động (Bài 5 & Bài 7)
                 </span>
                 <h3 className="text-2xl font-black text-slate-900 group-hover:text-blue-600 transition-colors">
-                  Bài 1: Con Lắc Đơn (Simple Pendulum)
+                  Con Lắc Đơn (Simple Pendulum)
                 </h3>
                 <p className="text-base text-slate-700 leading-relaxed">
-                  Trải nghiệm đo chu kỳ dao động tự do của con lắc đơn. Khảo sát sự phụ thuộc của chu kỳ T vào chiều dài dây l và gia tốc trọng trường g. Kiểm chứng định luật bảo toàn cơ năng qua biểu đồ động.
+                  Trải nghiệm khảo sát chu kỳ dao động tự do của con lắc đơn. Tìm hiểu sự chuyển hóa giữa động năng và thế năng, sự bảo toàn cơ năng của con lắc đơn (SGK Bài 5), và thực hành đo chu kỳ, tần số (SGK Bài 7).
                 </p>
               </div>
               <div className="mt-8 pt-6 border-t border-slate-200/60">
@@ -212,13 +212,13 @@ export default function HomeView({ onEnterLab }: HomeViewProps) {
             <div className="flex flex-col justify-between bg-slate-50 border border-slate-200 rounded-3xl p-8 sm:p-10 hover:border-indigo-400 hover:shadow-xl transition-all group">
               <div className="space-y-5">
                 <span className="inline-flex rounded-full bg-indigo-100 px-4 py-1.5 text-sm font-bold text-indigo-850">
-                  Chương: Dao động
+                  Chương I: Dao động (Bài 5)
                 </span>
-                <h3 className="text-2xl font-black text-slate-900 group-hover:text-indigo-600 transition-colors">
-                  Bài 2: Con Lắc Lò Xo (Spring-Mass)
+                <h3 className="text-2xl font-black text-slate-900 group-hover:text-indigo-650 transition-colors">
+                  Con Lắc Lò Xo (Spring-Mass)
                 </h3>
                 <p className="text-base text-slate-700 leading-relaxed">
-                  Khảo sát dao động điều hòa tiêu biểu của con lắc lò xo treo thẳng đứng. Nghiên cứu ảnh hưởng của độ cứng lò xo k, khối lượng m và lực cản môi trường lên chu kỳ T và tần số dao động.
+                  Khảo sát dao động riêng tiêu biểu của con lắc lò xo treo thẳng đứng. Nghiên cứu động năng, thế năng đàn hồi và sự biến đổi qua lại liên tục giữa chúng nhưng cơ năng luôn được bảo toàn (SGK Bài 5).
                 </p>
               </div>
               <div className="mt-8 pt-6 border-t border-slate-200/60">
@@ -236,13 +236,13 @@ export default function HomeView({ onEnterLab }: HomeViewProps) {
             <div className="flex flex-col justify-between bg-slate-50 border border-slate-200 rounded-3xl p-8 sm:p-10 hover:border-teal-400 hover:shadow-xl transition-all group">
               <div className="space-y-5">
                 <span className="inline-flex rounded-full bg-teal-100 px-4 py-1.5 text-sm font-bold text-teal-850">
-                  Chương: Sóng
+                  Chương II: Sóng (Bài 8 & Bài 12)
                 </span>
                 <h3 className="text-2xl font-black text-slate-900 group-hover:text-teal-600 transition-colors">
-                  Bài 3: Giao Thoa Sóng & Sóng Truyền (Wave Simulator)
+                  Giao Thoa Sóng Cơ Học (Wave Simulator)
                 </h3>
                 <p className="text-base text-slate-700 leading-relaxed">
-                  Khảo sát tính chất sóng cơ học hoặc sóng ánh sáng truyền đi trong không gian. Tùy chỉnh tần số, bước sóng và quan sát hiện tượng giao thoa giữa 2 nguồn sóng kết hợp. Giúp hiểu rõ bước sóng và độ lệch pha.
+                  Khảo sát sự truyền sóng và định nghĩa bước sóng (SGK Bài 8). Đặc biệt nghiên cứu sự giao thoa sóng cơ học khi hai sóng kết hợp cùng pha gặp nhau, tạo ra các cực đại và cực tiểu giao thoa (SGK Bài 12).
                 </p>
               </div>
               <div className="mt-8 pt-6 border-t border-slate-200/60">
@@ -260,13 +260,13 @@ export default function HomeView({ onEnterLab }: HomeViewProps) {
             <div className="flex flex-col justify-between bg-slate-50 border border-slate-200 rounded-3xl p-8 sm:p-10 hover:border-violet-400 hover:shadow-xl transition-all group">
               <div className="space-y-5">
                 <span className="inline-flex rounded-full bg-violet-100 px-4 py-1.5 text-sm font-bold text-violet-850">
-                  Chương: Sóng
+                  Chương II: Sóng (Bài 14)
                 </span>
                 <h3 className="text-2xl font-black text-slate-900 group-hover:text-violet-600 transition-colors">
-                  Bài 4: Giao Thoa Ánh Sáng (Double-Slit Interference)
+                  Giao Thoa Ánh Sáng Young (Double-Slit)
                 </h3>
                 <p className="text-base text-slate-700 leading-relaxed">
-                  Khảo sát hiện tượng giao thoa ánh sáng qua khe hẹp Young. Tùy chỉnh hai chùm bức xạ với các bước sóng λ₁ và λ₂ khác nhau, thay đổi khoảng cách khe a, khoảng cách màn D để quan sát hệ vân xen kẽ và sự trùng nhau của các vân sáng.
+                  Khảo sát hiện tượng giao thoa ánh sáng đơn sắc qua khe hẹp Young (SGK Bài 14). Tùy chỉnh bước sóng λ, khoảng cách khe a, và khoảng cách màn D để đo đạc và xác định khoảng vân giao thoa i.
                 </p>
               </div>
               <div className="mt-8 pt-6 border-t border-slate-200/60">
