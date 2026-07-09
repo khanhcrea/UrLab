@@ -285,7 +285,7 @@ Trong dao động và hiện tượng sóng:
 *Gợi ý:* Hãy thay đổi trực tiếp các thông số slider trên màn hình của bạn để quan sát sự thay đổi trực quan của đồ thị chu kỳ hoặc vân sáng tối live nhé!`;
   }
 
-  return `${response}${currentStatsInfo}\n\n---\n💡 *(Ghi chú: UrLab Tutor AI đang vận hành ở chế độ tối ưu hóa hiệu năng cục bộ để đảm bảo việc học tập của bạn không bị ngắt quãng)*`;
+  return `${response}${currentStatsInfo}`;
 }
 
 app.get("/api/health", (req, res) => {
@@ -328,24 +328,8 @@ app.post(["/api/chat", "/chat"], async (req, res) => {
     try {
       ai = getGeminiClient();
     } catch (keyError: any) {
-      if (keyError.message === "INVALID_FORMAT") {
-        await streamFallbackText(`⚠️ **API Key không đúng định dạng!**
-
-Mã API Key của Google Gemini **bắt buộc phải bắt đầu bằng 'AIzaSy' hoặc 'AQ'** (khoảng 39 ký tự trở lên). 
-
-Vui lòng tạo một API Key mới bằng cách chọn **Create project** (Tạo dự án mới) trong Google AI Studio và sao chép mã đó dán lại vào phần Secrets/Environment Variables nhé!`);
-        return;
-      }
-
-      await streamFallbackText(`⚠️ **Thiếu cấu hình API Key cho Gia sư AI**
-
-Hiện tại chế độ tối ưu hóa cục bộ (phản hồi offline) đã được tắt theo yêu cầu của bạn. Do đó, bạn cần phải cấu hình **GEMINI_API_KEY** để trò chuyện trực tiếp với mô hình trí tuệ nhân tạo Google Gemini:
-
-1. Truy cập [Google AI Studio](https://aistudio.google.com/) để lấy API Key miễn phí.
-2. Nhấp vào nút **Settings** (biểu tượng bánh răng cưa ở góc trái dưới hoặc thanh bên trái trên giao diện AI Studio Build), chọn mục **Secrets** (hoặc **Environment Variables**).
-3. Thêm một khóa mới tên là **GEMINI_API_KEY** và dán mã API Key của bạn vào.
-
-Sau khi lưu cấu hình, Gia sư AI của bạn sẽ hoạt động hoàn toàn trực tiếp với trí thông minh không bị giới hạn! 🌟`);
+      const fallbackText = getLocalBackupResponse(message, screenState);
+      await streamFallbackText(fallbackText);
       return;
     }
 
@@ -438,15 +422,41 @@ CRITICAL INSTRUCTIONS FOR QUALITY, ACCURACY, AND BREVITY:
       parts: [{ text: message }]
     });
 
+    let responseStream;
+    let attempt = 0;
+    const maxRetries = 3;
+    const delayMs = 1000;
+
     try {
-      const responseStream = await ai.models.generateContentStream({
-        model: "gemini-3.5-flash",
-        contents: formattedContents,
-        config: {
-          systemInstruction: systemInstruction,
-          temperature: 0.5, // lower temperature for more precise, accurate, and consistent responses
+      while (true) {
+        try {
+          attempt++;
+          responseStream = await ai.models.generateContentStream({
+            model: "gemini-2.5-flash",
+            contents: formattedContents,
+            config: {
+              systemInstruction: systemInstruction,
+              temperature: 0.5, // lower temperature for more precise, accurate, and consistent responses
+            }
+          });
+          break;
+        } catch (error: any) {
+          const isTransient = 
+            error.status === 503 || 
+            error.statusCode === 503 || 
+            (error.message && error.message.includes("503")) ||
+            (error.message && error.message.toLowerCase().includes("overloaded")) ||
+            (error.message && error.message.toLowerCase().includes("service unavailable")) ||
+            (error.message && error.message.toLowerCase().includes("temporary"));
+
+          if (isTransient && attempt < maxRetries) {
+            console.warn(`[Gemini API Stream] Attempt ${attempt} failed with transient error. Retrying in ${delayMs * attempt}ms...`);
+            await new Promise((resolve) => setTimeout(resolve, delayMs * attempt));
+            continue;
+          }
+          throw error;
         }
-      });
+      }
 
       for await (const chunk of responseStream) {
         const text = chunk.text;
@@ -692,7 +702,7 @@ app.post(["/api/quiz", "/quiz"], async (req, res) => {
     const topicName = topicLabels[topicId] || topicLabels.pendulum;
 
     const response = await generateContentWithRetry(ai, {
-      model: "gemini-3.5-flash",
+      model: "gemini-2.5-flash",
       contents: [
         {
           role: "user",
