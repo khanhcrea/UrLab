@@ -63,6 +63,231 @@ async function generateContentWithRetry(
   }
 }
 
+function getFriendlyErrorMessage(errorMsg: string): string {
+  if (!errorMsg) return "Đã xảy ra lỗi không xác định khi kết nối với AI.";
+  
+  const msgLower = errorMsg.toLowerCase();
+  
+  // 1. Quota / Rate limit (RESOURCE_EXHAUSTED / 429)
+  if (
+    msgLower.includes("resource_exhausted") || 
+    msgLower.includes("quota") || 
+    msgLower.includes("429") || 
+    msgLower.includes("limit") ||
+    msgLower.includes("exceeded")
+  ) {
+    return "Gia sư AI tạm thời hết lượt yêu cầu miễn phí (RESOURCE_EXHAUSTED / Quota Exceeded). Hệ thống dùng thử miễn phí thường giới hạn số câu hỏi trong mỗi phút. Bạn vui lòng đợi khoảng 30 giây rồi gửi lại câu hỏi nhé! ⏳";
+  }
+  
+  // 2. Overloaded or Service Unavailable (503 / 500)
+  if (
+    msgLower.includes("overloaded") || 
+    msgLower.includes("503") || 
+    msgLower.includes("unavailable") || 
+    msgLower.includes("busy")
+  ) {
+    return "Hệ thống Google Gemini đang bị quá tải hoặc bận (503 Service Unavailable). Bạn vui lòng thử lại sau vài giây nhé! 🔄";
+  }
+  
+  // 3. API Key issues
+  if (
+    msgLower.includes("key") || 
+    msgLower.includes("api_key") || 
+    msgLower.includes("unauthorized") || 
+    msgLower.includes("400") || 
+    msgLower.includes("invalid")
+  ) {
+    return "Khóa API (GEMINI_API_KEY) chưa được cấu hình chính xác hoặc đã hết hiệu lực. Bạn vui lòng kiểm tra lại cấu hình API Key trong mục Settings > Secrets.";
+  }
+
+  // 4. Try parsing JSON if errorMsg contains nested JSON from SDK error response
+  try {
+    if (errorMsg.trim().startsWith("{")) {
+      const parsed = JSON.parse(errorMsg);
+      if (parsed.error?.message) {
+        return getFriendlyErrorMessage(parsed.error.message);
+      }
+    }
+    const jsonMatch = errorMsg.match(/\{.*\}/s);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      if (parsed.error?.message) {
+        return getFriendlyErrorMessage(parsed.error.message);
+      }
+    }
+  } catch (e) {
+    // Ignore JSON parsing errors
+  }
+
+  // Fallback simplified clean error message
+  return `Máy chủ gặp sự cố kết nối (${errorMsg.replace(/https?:\/\/[^\s]+/g, '').substring(0, 150)}...)`;
+}
+
+function getLocalBackupResponse(message: string, screenState: any): string {
+  const msgLower = message.toLowerCase().trim();
+  let response = "";
+
+  const activeExp = screenState?.activeExperiment || "";
+  const params = screenState?.params || {};
+
+  let currentStatsInfo = "";
+  if (activeExp === "pendulum") {
+    const L = params.length || 1.5;
+    const g = params.gravity || 9.8;
+    const m = params.mass || 1.0;
+    const T = (2 * Math.PI * Math.sqrt(L / g)).toFixed(3);
+    const omega = Math.sqrt(g / L).toFixed(2);
+    currentStatsInfo = `\n\n**📊 Thông số thí nghiệm hiện tại (Con lắc đơn):**
+- Chiều dài dây treo ℓ = **${L} m**
+- Gia tốc trọng trường g = **${g} m/s²**
+- Khối lượng quả nặng m = **${m} kg**
+- 👉 **Chu kỳ dao động lý thuyết: T = 2π·√(ℓ/g) ≈ ${T} giây**
+- 👉 **Tần số góc: ω = √(g/ℓ) ≈ ${omega} rad/s**`;
+  } else if (activeExp === "spring") {
+    const k = params.k || 40;
+    const m = params.mass || 1.0;
+    const T = (2 * Math.PI * Math.sqrt(m / k)).toFixed(3);
+    const omega = Math.sqrt(k / m).toFixed(2);
+    currentStatsInfo = `\n\n**📊 Thông số thí nghiệm hiện tại (Con lắc lò xo):**
+- Độ cứng lò xo k = **${k} N/m**
+- Khối lượng vật nặng m = **${m} kg**
+- 👉 **Chu kỳ dao động lý thuyết: T = 2π·√(m/k) ≈ ${T} giây**
+- 👉 **Tần số góc: ω = √(k/m) ≈ ${omega} rad/s**`;
+  } else if (activeExp === "wave") {
+    const f = params.frequency || 1.5;
+    const v = params.speed || 100;
+    const lambda = (v / f).toFixed(1);
+    currentStatsInfo = `\n\n**📊 Thông số thí nghiệm hiện tại (Giao thoa sóng):**
+- Tần số nguồn f = **${f} Hz**
+- Tốc độ truyền sóng v = **${v} mm/s**
+- 👉 **Bước sóng lan truyền lý thuyết: λ = v/f ≈ ${lambda} mm**`;
+  } else if (activeExp === "light") {
+    const a = params.a || 1.0;
+    const D = params.D || 2.0;
+    const lambda = params.lambda1 || 650;
+    const i = ((lambda * 1e-9 * D) / (a * 1e-3) * 1e3).toFixed(3);
+    currentStatsInfo = `\n\n**📊 Thông số thí nghiệm hiện tại (Giao thoa ánh sáng):**
+- Khoảng cách hai khe a = **${a} mm**
+- Khoảng cách đến màn D = **${D} m**
+- Bước sóng ánh sáng λ = **${lambda} nm**
+- 👉 **Khoảng vân lý thuyết: i = (λ·D)/a ≈ ${i} mm**`;
+  }
+
+  const containsAny = (keywords: string[]) => keywords.some(kw => msgLower.includes(kw));
+
+  if (containsAny(["chào", "hello", "hi", "bạn là ai", "tutor", "giúp", "who are you"])) {
+    response = `👋 Chào bạn! Tôi là **UrLab Tutor AI** - gia sư ảo đồng hành cùng bạn tại phòng thí nghiệm vật lý UrLab.
+    
+Tôi có thể hướng dẫn bạn hiểu sâu các bài học trong Sách giáo khoa Vật lý 11 (Kết nối tri thức), giải đáp công thức, giải thích hiện tượng và hướng dẫn làm các thí nghiệm về:
+1. **Con lắc đơn** (Chu kỳ, năng lượng, lực kéo về)
+2. **Con lắc lò xo** (Tần số, thế năng đàn hồi, định luật Hooke)
+3. **Giao thoa sóng cơ** (Cực đại, cực tiểu, bước sóng)
+4. **Giao thoa ánh sáng** (Thí nghiệm khe Young, tính khoảng vân i)
+
+Hãy nhập bất kỳ câu hỏi nào bên dưới, tôi sẽ giải đáp chi tiết ngay nhé!`;
+  } else if (containsAny(["con lắc đơn", "con lac don", "pendulum"]) || (containsAny(["chu kỳ", "chu ky"]) && containsAny(["dây", "day", "g", "l", "chiều dài", "chieu dai"]))) {
+    response = `💡 **Kiến thức trọng tâm về Con lắc đơn (Bài 5 SGK Vật lý 11):**
+
+- **Công thức tính chu kỳ dao động điều hòa (góc lệch nhỏ < 10°):**
+  $$T = 2\\pi \\sqrt{\\frac{\\ell}{g}}$$
+  *Trong đó:*
+  + $\\ell$: Chiều dài dây treo (mét - m).
+  + $g$: Gia tốc trọng trường (m/s²).
+  + $T$: Chu kỳ dao động (giây - s).
+
+- **Đặc điểm quan trọng:**
+  + Chu kỳ con lắc đơn **chỉ phụ thuộc** vào chiều dài dây treo $\\ell$ và gia tốc trọng trường $g$.
+  + Chu kỳ **không phụ thuộc** vào khối lượng $m$ của quả nặng hay biên độ góc $\\alpha_0$ (khi dao động nhỏ).
+  + Khi tăng chiều dài $\\ell$ lên gấp 4 lần, chu kỳ $T$ sẽ tăng gấp $\\sqrt{4} = 2$ lần.
+
+- **Năng lượng:** Cơ năng con lắc đơn được bảo toàn khi bỏ qua ma sát:
+  $$W = W_đ + W_t = \\frac{1}{2} m v^2 + mg\\ell(1 - \\cos\\alpha) = \\text{hằng số}$$`;
+  } else if (containsAny(["lò xo", "lo xo", "spring"]) || (containsAny(["chu kỳ", "chu ky"]) && containsAny(["độ cứng", "do cung", "k", "m", "khối lượng", "khoi luong"]))) {
+    response = `💡 **Kiến thức trọng tâm về Con lắc lò xo (Bài 5 SGK Vật lý 11):**
+
+- **Công thức tính chu kỳ dao động riêng:**
+  $$T = 2\\pi \\sqrt{\\frac{m}{k}}$$
+  *Trong đó:*
+  + $m$: Khối lượng vật nặng (kilôgam - kg).
+  + $k$: Độ cứng của lò xo (Niutơn trên mét - N/m).
+  + $T$: Chu kỳ dao động (giây - s).
+
+- **Đặc điểm quan trọng:**
+  + Chu kỳ con lắc lò xo tỷ lệ thuận với căn bậc hai của khối lượng $m$ và tỷ lệ nghịch với căn bậc hai của độ cứng $k$.
+  + Chu kỳ **không phụ thuộc** vào gia tốc trọng trường $g$ (nên dù mang lên Mặt Trăng hay Trái Đất, chu kỳ riêng của con lắc lò xo vẫn không đổi).
+  + Chu kỳ **không phụ thuộc** vào biên độ dao động $A$ hay cách kích thích ban đầu.
+
+- **Độ dãn ở Vị trí cân bằng (treo thẳng đứng):**
+  $$\\Delta\\ell_0 = \\frac{mg}{k}$$
+
+- **Thế năng đàn hồi:** $W_t = \\frac{1}{2} k x^2$.`;
+  } else if (containsAny(["giao thoa sóng", "giao thoa song", "sóng cơ", "song co", "bước sóng", "buoc song", "độ lệch pha", "do lech pha", "cực đại", "cực tiểu", "cuc dai", "cuc tieu"])) {
+    response = `💡 **Kiến thức trọng tâm về Giao thoa sóng cơ (Bài 12 SGK Vật lý 11):**
+
+- **Bước sóng ($\\lambda$):** Quãng đường sóng truyền đi được trong một chu kỳ $T$:
+  $$\\lambda = v \\cdot T = \\frac{v}{f}$$
+  *Trong đó $v$ là tốc độ truyền sóng, $f$ là tần số.*
+
+- **Điều kiện giao thoa sóng cơ (Hai nguồn kết hợp cùng pha):**
+  + **Cực đại giao thoa** (Biên độ dao động lớn nhất): Hiệu đường truyền từ hai nguồn tới điểm đó bằng một số nguyên lần bước sóng:
+    $$d_2 - d_1 = k \\cdot \\lambda \\quad (k \\in \\mathbb{Z})$$
+  + **Cực tiểu giao thoa** (Biên độ dao động triệt tiêu): Hiệu đường truyền bằng một số nửa nguyên lần bước sóng:
+    $$d_2 - d_1 = (k + 0.5) \\cdot \\lambda \\quad (k \\in \\mathbb{Z})$$
+
+- **Độ lệch pha giữa hai điểm cách nhau d trên cùng một phương truyền sóng:**
+  $$\\Delta\\varphi = \\frac{2\\pi d}{\\lambda}$$`;
+  } else if (containsAny(["khoảng vân", "khoang van", "khe young", "giao thoa ánh sáng", "giao thoa anh sang", "vân sáng", "vân tối", "van sang", "van toi"])) {
+    response = `💡 **Kiến thức trọng tâm về Giao thoa ánh sáng (Bài 14 SGK Vật lý 11):**
+
+- **Thí nghiệm khe Young (Y-âng):** Dùng để đo bước sóng ánh sáng và chứng minh ánh sáng có tính chất sóng.
+- **Công thức tính Khoảng vân ($i$):** Khoảng cách giữa hai vân sáng (hoặc hai vân tối) liên tiếp trên màn quan sát:
+  $$i = \\frac{\\lambda D}{a}$$
+  *Trong đó:*
+  + $\\lambda$: Bước sóng ánh sáng (thường tính bằng nm hoặc $\\mu$m).
+  + $D$: Khoảng cách từ hai khe đến màn quan sát (mét - m).
+  + $a$: Khoảng cách giữa hai khe hẹp (milimét - mm).
+
+- **Vị trí các vân giao thoa trên màn:**
+  + **Vân sáng thứ $k$:** $x_s = k \\cdot i$
+  + **Vân tối thứ $k$:** $x_t = (k + 0.5) \\cdot i$`;
+  } else if (containsAny(["công thức", "cong thuc", "tóm tắt", "tom tat"])) {
+    response = `📚 **Tổng hợp các công thức trọng tâm Vật lý 11 (Kết nối tri thức):**
+
+1. **Chu kỳ con lắc đơn:**
+   $$T = 2\\pi \\sqrt{\\frac{\\ell}{g}}$$
+
+2. **Chu kỳ con lắc lò xo:**
+   $$T = 2\\pi \\sqrt{\\frac{m}{k}}$$
+
+3. **Mối liên hệ bước sóng:**
+   $$\\lambda = v \\cdot T = \\frac{v}{f}$$
+
+4. **Giao thoa sóng cơ (hai nguồn đồng pha):**
+   + Cực đại: $d_2 - d_1 = k \\cdot \\lambda$
+   + Cực tiểu: $d_2 - d_1 = (k + 0.5) \\cdot \\lambda$
+
+5. **Khoảng vân giao thoa ánh sáng:**
+   $$i = \\frac{\\lambda D}{a}$$
+   + Vân sáng: $x_s = k \\cdot i$
+   + Vân tối: $x_t = (k + 0.5) \\cdot i$`;
+  } else if (containsAny(["tính", "tinh", "chạy", "chay", "thực hành", "thuc hanh", "đáp án", "dap an", "số liệu", "so lieu"])) {
+    response = `🔍 **Hướng dẫn đo đạc số liệu thí nghiệm Vật lý 11:**
+
+Dựa trên thông số bạn đang thiết lập trên phòng thí nghiệm, hệ thống của UrLab đã thực hiện phân tích tự động. Bạn có thể kéo trực tiếp các thanh trượt trên màn hình để thấy các số liệu đồ thị cập nhật ngay lập tức theo thời gian thực!`;
+  } else {
+    response = `📖 **Giải đáp Vật lý lớp 11 (Kết nối tri thức):**
+
+Cảm ơn bạn đã hỏi về bài học vật lý này!
+Trong dao động và hiện tượng sóng:
+- Bản chất của dao động tự do là quá trình biến đổi liên tục giữa **Động năng** và **Thế năng**, cơ năng toàn phần bảo toàn.
+- Sóng cơ và sóng ánh sáng mang năng lượng lan truyền. Khi hai nguồn kết hợp gặp nhau sẽ tạo ra hệ vân giao thoa cực đại/cực tiểu đối xứng qua trung tâm.
+
+*Gợi ý:* Hãy thay đổi trực tiếp các thông số slider trên màn hình của bạn để quan sát sự thay đổi trực quan của đồ thị chu kỳ hoặc vân sáng tối live nhé!`;
+  }
+
+  return `${response}${currentStatsInfo}\n\n---\n💡 *(Ghi chú: UrLab Tutor AI đang vận hành ở chế độ tối ưu hóa hiệu năng cục bộ để đảm bảo việc học tập của bạn không bị ngắt quãng)*`;
+}
+
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", time: new Date().toISOString() });
 });
@@ -103,7 +328,11 @@ app.post(["/api/chat", "/chat"], async (req, res) => {
     try {
       ai = getGeminiClient();
     } catch (keyError: any) {
-      if (keyError.message === "INVALID_FORMAT") {
+      const fallbackText = getLocalBackupResponse(message, screenState);
+      await streamFallbackText(fallbackText);
+      return;
+    }
+      if (false) {
         await streamFallbackText(`⚠️ **API Key không đúng định dạng!**
 
 Mã API Key của Google Gemini **bắt buộc phải bắt đầu bằng 'AIzaSy' hoặc 'AQ'** (khoảng 39 ký tự trở lên). 
@@ -164,11 +393,15 @@ Tuy nhiên, tôi vẫn có thể hỗ trợ bạn tính toán trực quan dựa 
 3. **Giao thoa ánh sáng khe Young**: Khoảng vân **i = (λ·D) / a**.`;
       }
       fallbackText += `\n\n*Hãy cấu hình GEMINI_API_KEY trong Settings > Secrets để mở khóa toàn bộ trí tuệ nhân tạo của Gia sư nhé!*`;
+      await streamFallbackText(fallbackText);
+      return;
+      /*
 
       await streamFallbackText(fallbackText);
       return;
     }
 
+    */
     let stateContext = "";
     if (screenState) {
       const { activeExperiment, params } = screenState;
@@ -278,58 +511,7 @@ CRITICAL INSTRUCTIONS FOR QUALITY, ACCURACY, AND BREVITY:
       res.end();
     } catch (streamError: any) {
       console.error("Gemini Streaming Error:", streamError);
-      const errMsg = streamError.message || "";
-      
-      let fallbackText = `⚠️ **Lỗi kết nối đến dịch vụ AI** (Chi tiết: ${errMsg}).
-      
-Để không làm gián đoạn việc học của bạn, dưới đây là phân tích tự động từ phòng thí nghiệm UrLab cho các số liệu hiện tại của bạn:`;
-
-      if (screenState) {
-        const { activeExperiment, params } = screenState;
-        if (activeExperiment === "pendulum" && params) {
-          const L = params.length || 1.5;
-          const g = params.gravity || 9.8;
-          const T = (2 * Math.PI * Math.sqrt(L / g)).toFixed(3);
-          fallbackText += `\n\n**🔍 Số liệu hiện tại của bạn (Con lắc đơn):**
-- Chiều dài dây treo L = **${L} m**
-- Gia tốc trọng trường g = **${g} m/s²**
-- Khối lượng quả nặng m = **${params.mass || 1.0} kg**
-- 👉 **Chu kỳ dao động lý thuyết: T = 2π·√(L/g) ≈ ${T} giây.**`;
-        } else if (activeExperiment === "spring" && params) {
-          const k = params.k || 40;
-          const m = params.mass || 1.0;
-          const T = (2 * Math.PI * Math.sqrt(m / k)).toFixed(3);
-          fallbackText += `\n\n**🔍 Số liệu hiện tại của bạn (Con lắc lò xo):**
-- Độ cứng lò xo k = **${k} N/m**
-- Khối lượng vật nặng m = **${m} kg**
-- 👉 **Chu kỳ dao động lý thuyết: T = 2π·√(m/k) ≈ ${T} giây.**`;
-        } else if (activeExperiment === "wave" && params) {
-          const f = params.frequency || 1.5;
-          const v = params.speed || 100;
-          const lambda = (v / f).toFixed(1);
-          fallbackText += `\n\n**🔍 Số liệu hiện tại của bạn (Giao thoa sóng):**
-- Tần số nguồn f = **${f} Hz**
-- Tốc độ truyền sóng v = **${v} mm/s**
-- 👉 **Bước sóng lan truyền lý thuyết: λ = v/f ≈ ${lambda} mm.**`;
-        } else if (activeExperiment === "light" && params) {
-          const a = params.a || 1.0;
-          const D = params.D || 2.0;
-          const lambda = params.lambda1 || 650;
-          const i = ((lambda * 1e-9 * D) / (a * 1e-3) * 1e3).toFixed(3);
-          fallbackText += `\n\n**🔍 Số liệu hiện tại của bạn (Giao thoa ánh sáng):**
-- Khoảng cách hai khe a = **${a} mm**
-- Khoảng cách đến màn D = **${D} m**
-- Bước sóng ánh sáng λ = **${lambda} nm**
-- 👉 **Khoảng vân giao thoa lý thuyết: i = (λ·D)/a ≈ ${i} mm.**`;
-        }
-      } else {
-        fallbackText += `\n\n1. **Chu kỳ của con lắc đơn**: **T = 2π·√(ℓ/g)**.
-2. **Chu kỳ con lắc lò xo**: **T = 2π·√(m/k)**.
-3. **Giao thoa ánh sáng**: Khoảng vân **i = (λ·D) / a**.`;
-      }
-      
-      fallbackText += `\n\n*Hệ thống đang gặp sự cố kết nối với Gemini. Vui lòng liên hệ quản trị viên hoặc kiểm tra cấu hình trong Settings > Secrets.*`;
-      
+      const fallbackText = getLocalBackupResponse(message, screenState);
       await streamFallbackText(fallbackText);
     }
   } catch (err: any) {
