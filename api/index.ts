@@ -337,59 +337,15 @@ Vui lòng tạo một API Key mới bằng cách chọn **Create project** (Tạ
         return;
       }
 
-      // Richer fallback answer based on current screen state even if offline/no key!
-      let fallbackText = `Chào bạn! Tôi là **UrLab Physics Tutor**. Hiện tại API Key của Gemini chưa được cấu hình đầy đủ trên Workspace của hệ thống. 
+      await streamFallbackText(`⚠️ **Thiếu cấu hình API Key cho Gia sư AI**
 
-Tuy nhiên, tôi vẫn có thể hỗ trợ bạn tính toán trực quan dựa trên các số liệu thực tế trên màn hình của bạn:`;
+Hiện tại chế độ tối ưu hóa cục bộ (phản hồi offline) đã được tắt theo yêu cầu của bạn. Do đó, bạn cần phải cấu hình **GEMINI_API_KEY** để trò chuyện trực tiếp với mô hình trí tuệ nhân tạo Google Gemini:
 
-      if (screenState) {
-        const { activeExperiment, params } = screenState;
-        if (activeExperiment === "pendulum" && params) {
-          const L = params.length || 1.5;
-          const g = params.gravity || 9.8;
-          const T = (2 * Math.PI * Math.sqrt(L / g)).toFixed(3);
-          fallbackText += `\n\n**🔍 Số liệu hiện tại của bạn (Con lắc đơn):**
-- Chiều dài dây treo L = **${L} m**
-- Gia tốc trọng trường g = **${g} m/s²**
-- Khối lượng quả nặng m = **${params.mass || 1.0} kg**
-- Hệ số cản b = **${params.damping || 0.05}**
-- 👉 **Chu kỳ dao động lý thuyết tính được: T = 2π·√(L/g) ≈ ${T} giây.**`;
-        } else if (activeExperiment === "spring" && params) {
-          const k = params.k || 40;
-          const m = params.mass || 1.0;
-          const T = (2 * Math.PI * Math.sqrt(m / k)).toFixed(3);
-          fallbackText += `\n\n**🔍 Số liệu hiện tại của bạn (Con lắc lò xo):**
-- Độ cứng lò xo k = **${k} N/m**
-- Khối lượng vật nặng m = **${m} kg**
-- Ly độ ban đầu x0 = **${params.initialX || 6} cm**
-- 👉 **Chu kỳ dao động lý thuyết tính được: T = 2π·√(m/k) ≈ ${T} giây.**`;
-        } else if (activeExperiment === "wave" && params) {
-          const f = params.frequency || 1.5;
-          const v = params.speed || 100;
-          const lambda = (v / f).toFixed(1);
-          fallbackText += `\n\n**🔍 Số liệu hiện tại của bạn (Giao thoa sóng):**
-- Tần số nguồn f = **${f} Hz** (Chu kỳ T = ${(1/f).toFixed(2)}s)
-- Tốc độ truyền sóng v = **${v} mm/s**
-- Biên độ A = **${params.amplitude || 35} mm**
-- 👉 **Bước sóng lan truyền lý thuyết: λ = v/f ≈ ${lambda} mm.**`;
-        } else if (activeExperiment === "light" && params) {
-          const a = params.a || 1.0;
-          const D = params.D || 2.0;
-          const lambda = params.lambda1 || 650;
-          const i = ((lambda * 1e-9 * D) / (a * 1e-3) * 1e3).toFixed(3);
-          fallbackText += `\n\n**🔍 Số liệu hiện tại của bạn (Giao thoa ánh sáng):**
-- Khoảng cách hai khe a = **${a} mm**
-- Khoảng cách đến màn D = **${D} m**
-- Bước sóng ánh sáng λ = **${lambda} nm**
-- 👉 **Khoảng vân giao thoa lý thuyết: i = (λ·D)/a ≈ ${i} mm.**`;
-        }
-      } else {
-        fallbackText += `\n1. **Chu kỳ của con lắc đơn**: Xác định bởi công thức **T = 2π·√(L/g)**.
-2. **Chu kỳ con lắc lò xo**: Xác định bởi công thức **T = 2π·√(m/k)**.
-3. **Giao thoa ánh sáng khe Young**: Khoảng vân **i = (λ·D) / a**.`;
-      }
-      fallbackText += `\n\n*Hãy cấu hình GEMINI_API_KEY trong Settings > Secrets để mở khóa toàn bộ trí tuệ nhân tạo của Gia sư nhé!*`;
-      await streamFallbackText(fallbackText);
+1. Truy cập [Google AI Studio](https://aistudio.google.com/) để lấy API Key miễn phí.
+2. Nhấp vào nút **Settings** (biểu tượng bánh răng cưa ở góc trái dưới hoặc thanh bên trái trên giao diện AI Studio Build), chọn mục **Secrets** (hoặc **Environment Variables**).
+3. Thêm một khóa mới tên là **GEMINI_API_KEY** và dán mã API Key của bạn vào.
+
+Sau khi lưu cấu hình, Gia sư AI của bạn sẽ hoạt động hoàn toàn trực tiếp với trí thông minh không bị giới hạn! 🌟`);
       return;
     }
 
@@ -502,8 +458,8 @@ CRITICAL INSTRUCTIONS FOR QUALITY, ACCURACY, AND BREVITY:
       res.end();
     } catch (streamError: any) {
       console.error("Gemini Streaming Error:", streamError);
-      const fallbackText = getLocalBackupResponse(message, screenState);
-      await streamFallbackText(fallbackText);
+      const friendlyError = getFriendlyErrorMessage(streamError.message || "");
+      await streamFallbackText(`⚠️ **Lỗi kết nối hoặc phản hồi từ Google Gemini AI:**\n\n${friendlyError}`);
     }
   } catch (err: any) {
     console.error("Express handler error in /api/tutor:", err);
