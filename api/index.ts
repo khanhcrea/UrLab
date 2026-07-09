@@ -328,11 +328,7 @@ app.post(["/api/chat", "/chat"], async (req, res) => {
     try {
       ai = getGeminiClient();
     } catch (keyError: any) {
-      const fallbackText = getLocalBackupResponse(message, screenState);
-      await streamFallbackText(fallbackText);
-      return;
-    }
-      if (false) {
+      if (keyError.message === "INVALID_FORMAT") {
         await streamFallbackText(`⚠️ **API Key không đúng định dạng!**
 
 Mã API Key của Google Gemini **bắt buộc phải bắt đầu bằng 'AIzaSy' hoặc 'AQ'** (khoảng 39 ký tự trở lên). 
@@ -395,13 +391,8 @@ Tuy nhiên, tôi vẫn có thể hỗ trợ bạn tính toán trực quan dựa 
       fallbackText += `\n\n*Hãy cấu hình GEMINI_API_KEY trong Settings > Secrets để mở khóa toàn bộ trí tuệ nhân tạo của Gia sư nhé!*`;
       await streamFallbackText(fallbackText);
       return;
-      /*
-
-      await streamFallbackText(fallbackText);
-      return;
     }
 
-    */
     let stateContext = "";
     if (screenState) {
       const { activeExperiment, params } = screenState;
