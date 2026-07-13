@@ -5,7 +5,7 @@ import PendulumCanvas from "./components/PendulumCanvas";
 import SpringCanvas from "./components/SpringCanvas";
 import WaveCanvas from "./components/WaveCanvas";
 import LightInterferenceCanvas from "./components/LightInterferenceCanvas";
-import FormulaBox from "./components/FormulaBox";
+import FormulaBox, { Latex } from "./components/FormulaBox";
 import NotePad from "./components/NotePad";
 import QuizBox from "./components/QuizBox";
 import ChatBot from "./components/ChatBot";
@@ -294,104 +294,183 @@ export default function App() {
                   <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-5">
                     <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3.5">
                       <BookOpen className="h-6 w-6 text-amber-500" />
-                      <h3 className="text-lg font-bold text-slate-900">Kiến Thức Trọng Tâm Lớp 11</h3>
+                      <div>
+                        <h3 className="text-lg font-bold text-slate-900">Lý thuyết SGK Vật lí 11</h3>
+                        <p className="text-xs text-slate-500">Bộ sách: Kết nối tri thức với cuộc sống</p>
+                      </div>
                     </div>
 
                     {activeExperiment === "pendulum" ? (
                       <div className="text-sm text-slate-700 space-y-4.5 leading-relaxed">
                         <div>
-                          <h4 className="font-bold text-slate-900 text-base">1. Chu kỳ dao động (Period)</h4>
+                          <h4 className="font-bold text-slate-900 text-base">1. Dao động cơ & Dao động điều hòa</h4>
+                          <ul className="list-disc list-inside mt-1.5 space-y-1">
+                            <li><strong>Dao động cơ:</strong> Vật chuyển động qua lại quanh vị trí cân bằng.</li>
+                            <li><strong>Dao động tuần hoàn:</strong> Sau những khoảng thời gian bằng nhau, vật trở lại vị trí cũ theo hướng cũ.</li>
+                            <li><strong>Dao động điều hòa:</strong> Dao động tuần hoàn đơn giản nhất, được mô tả bằng phương trình:
+                              <span className="inline-block bg-slate-100 px-1.5 py-0.5 rounded text-slate-800 ml-1">
+                                <Latex math="x = A \cos(\omega t + \varphi)" />
+                              </span> hoặc <span className="inline-block bg-slate-100 px-1.5 py-0.5 rounded text-slate-800 ml-1">
+                                <Latex math="s = s_0 \cos(\omega t + \varphi)" />
+                              </span>.
+                            </li>
+                          </ul>
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-slate-900 text-base">2. Chu kì riêng & Tần số góc</h4>
                           <p className="mt-1.5">
-                            Là khoảng thời gian để con lắc thực hiện hết một dao động toàn phần. 
-                            Đối với góc lệch nhỏ (dưới 10°), dao động của con lắc đơn được coi là dao động điều hòa với chu kỳ độc lập với khối lượng m và góc ban đầu θ₀.
+                            Với góc lệch nhỏ (biên độ góc <Latex math="\alpha_0 \le 10^\circ" />), con lắc đơn dao động điều hòa với tần số góc riêng và chu kì:
+                          </p>
+                          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/60 font-mono text-slate-850 mt-1.5 space-y-1">
+                            <div className="flex items-center gap-1.5">Tần số góc: <Latex math="\omega = \sqrt{\frac{g}{\ell}}" /> (rad/s)</div>
+                            <div className="flex items-center gap-1.5">Chu kì: <Latex math="T = 2\pi\sqrt{\frac{\ell}{g}}" /> (s)</div>
+                          </div>
+                          <p className="text-xs text-slate-500 mt-1.5 italic">
+                            *Chu kì của con lắc đơn lúc này gần như không phụ thuộc vào biên độ dao động và khối lượng m của vật nặng.
                           </p>
                         </div>
                         <div>
-                          <h4 className="font-bold text-slate-900 text-base">2. Trọng lực & Lực hồi phục</h4>
-                          <p className="mt-1.5">
-                            Thành phần trọng lực theo phương tiếp tuyến với quỹ đạo đóng vai trò là <strong>lực phục hồi (lực kéo về)</strong> kéo quả nặng về vị trí cân bằng:
-                            <br />
-                            <code className="bg-slate-100 px-2 py-1 rounded font-mono text-slate-800 block mt-1">F_t = -m · g · sin(θ)</code>
-                          </p>
-                        </div>
-                        <div>
-                          <h4 className="font-bold text-slate-900 text-base">3. Bảo toàn cơ năng</h4>
-                          <p className="mt-1.5">
-                            Khi không có lực cản, cơ năng được bảo toàn và liên tục chuyển hóa qua lại giữa Động năng (cực đại ở vị trí cân bằng thấp nhất) và Thế năng (cực đại ở 2 biên cao nhất).
+                          <h4 className="font-bold text-slate-900 text-base">3. Động năng & Thế năng trọng trường</h4>
+                          <p className="mt-1.5">Chọn mốc thế năng ở vị trí cân bằng, tại li độ góc <Latex math="\alpha" /> (hoặc li độ dài <Latex math="s" />):</p>
+                          <ul className="list-disc list-inside mt-1.5 space-y-1">
+                            <li><strong>Thế năng trọng trường:</strong>
+                              <br />
+                              <div className="bg-slate-100 px-2 py-1 rounded text-slate-850 inline-block mt-1">
+                                <Latex math="W_{\text{t}} = mg\ell(1 - \cos \alpha) \approx \frac{1}{2} m \frac{g}{\ell} s^2 = \frac{1}{2} m \omega^2 s^2" />
+                              </div>
+                            </li>
+                            <li><strong>Động năng:</strong>
+                              <br />
+                              <div className="bg-slate-100 px-2 py-1 rounded text-slate-850 inline-block mt-1">
+                                <Latex math="W_{\text{đ}} = \frac{1}{2} m v^2 = \frac{1}{2} m \omega^2 s_0^2 \sin^2(\omega t + \varphi)" />
+                              </div>
+                            </li>
+                            <li><strong>Cơ năng:</strong> Tổng động năng và thế năng được bảo toàn (nếu bỏ qua ma sát):
+                              <br />
+                              <div className="bg-slate-100 px-2 py-1 rounded text-slate-850 inline-block mt-1">
+                                <Latex math="W = W_{\text{đ}} + W_{\text{t}} = \frac{1}{2} m \omega^2 s_0^2 = \text{hằng số}" />
+                              </div>
+                            </li>
+                          </ul>
+                          <p className="mt-2 text-xs text-slate-500">
+                            Trong quá trình dao động, có sự chuyển hóa qua lại giữa động năng và thế năng của vật, khi động năng tăng thì thế năng giảm và ngược lại.
                           </p>
                         </div>
                       </div>
                     ) : activeExperiment === "spring" ? (
                       <div className="text-sm text-slate-700 space-y-4.5 leading-relaxed">
                         <div>
-                          <h4 className="font-bold text-slate-900 text-base">1. Dao động điều hòa của con lắc lò xo</h4>
+                          <h4 className="font-bold text-slate-900 text-base">1. Cấu tạo con lắc lò xo</h4>
                           <p className="mt-1.5">
-                            Con lắc lò xo gồm một vật nặng có khối lượng m gắn vào đầu một lò xo có độ cứng k. Khi không có lực cản ma sát, con lắc dao động điều hòa quanh vị trí cân bằng với tần số riêng độc lập với biên độ dao động.
+                            Gồm một vật nặng có khối lượng <Latex math="m" /> gắn vào đầu một lò xo có độ cứng <Latex math="k" /> và khối lượng không đáng kể. Chọn mốc thế năng ở vị trí cân bằng.
                           </p>
                         </div>
                         <div>
                           <h4 className="font-bold text-slate-900 text-base">2. Tần số góc và Chu kỳ riêng</h4>
                           <p className="mt-1.5">
-                            Tần số góc và chu kỳ riêng của con lắc lò xo được xác định qua khối lượng m và độ cứng k:
-                            <br />
-                            <code className="bg-slate-100 px-2 py-1 rounded font-mono text-slate-850 block mt-1.5">ω = √(k / m)  (rad/s)</code>
-                            <code className="bg-slate-100 px-2 py-1 rounded font-mono text-slate-850 block mt-1.5">T = 2π · √(m / k)  (s)</code>
+                            Khi không có lực cản ma sát, con lắc dao động điều hòa quanh vị trí cân bằng với tần số góc và chu kỳ riêng:
                           </p>
+                          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/60 font-mono text-slate-850 mt-1.5 space-y-1">
+                            <div className="flex items-center gap-1.5">Tần số góc: <Latex math="\omega = \sqrt{\frac{k}{m}}" /> (rad/s)</div>
+                            <div className="flex items-center gap-1.5">Chu kỳ: <Latex math="T = 2\pi\sqrt{\frac{m}{k}}" /> (s)</div>
+                          </div>
                         </div>
                         <div>
-                          <h4 className="font-bold text-slate-900 text-base">3. Chuyển hóa Năng lượng (Cơ năng)</h4>
-                          <p className="mt-1.5">
-                            Trong quá trình dao động điều hòa, Động năng và Thế năng biến thiên tuần hoàn ngược pha nhau, nhưng tổng Cơ năng luôn được bảo toàn:
-                            <br />
-                            <code className="bg-slate-100 px-2 py-1 rounded font-mono text-slate-850 block mt-1.5">W = W_đ + W_t = ½ · m · v² + ½ · k · x² = ½ · k · A² = hằng số</code>
+                          <h4 className="font-bold text-slate-900 text-base">3. Động năng & Thế năng đàn hồi</h4>
+                          <ul className="list-disc list-inside mt-1.5 space-y-2">
+                            <li><strong>Thế năng đàn hồi:</strong> Thế năng của con lắc lò xo khi bị biến dạng (chọn mốc ở vị trí cân bằng):
+                              <br />
+                              <div className="bg-slate-100 px-2 py-1 rounded text-slate-850 inline-block mt-1">
+                                <Latex math="W_{\text{t}} = \frac{1}{2} k x^2" />
+                              </div>
+                            </li>
+                            <li><strong>Động năng:</strong> Động năng của vật nặng <Latex math="m" /> chuyển động:
+                              <br />
+                              <div className="bg-slate-100 px-2 py-1 rounded text-slate-850 inline-block mt-1">
+                                <Latex math="W_{\text{đ}} = \frac{1}{2} m v^2 = \frac{1}{2} m \omega^2 (A^2 - x^2)" />
+                              </div>
+                            </li>
+                            <li><strong>Bảo toàn cơ năng:</strong> Khi bỏ qua ma sát, cơ năng của con lắc lò xo được bảo toàn:
+                              <br />
+                              <div className="bg-slate-100 px-2 py-1 rounded text-slate-850 inline-block mt-1">
+                                <Latex math="W = W_{\text{đ}} + W_{\text{t}} = \frac{1}{2} m v^2 + \frac{1}{2} k x^2 = \frac{1}{2} k A^2 = \text{hằng số}" />
+                              </div>
+                            </li>
+                          </ul>
+                          <p className="mt-2 text-xs text-slate-500">
+                            Khi vật đi từ vị trí cân bằng ra biên, động năng từ cực đại giảm về 0, thế năng từ 0 tăng lên cực đại. Khi đi từ biên về vị trí cân bằng, thế năng giảm về 0 và động năng tăng lên cực đại.
                           </p>
                         </div>
                       </div>
                     ) : activeExperiment === "light" ? (
                       <div className="text-sm text-slate-700 space-y-4.5 leading-relaxed">
                         <div>
-                          <h4 className="font-bold text-slate-900 text-base">1. Hiện tượng giao thoa ánh sáng</h4>
+                          <h4 className="font-bold text-slate-900 text-base">1. Thí nghiệm Young (Y-âng) về giao thoa ánh sáng</h4>
                           <p className="mt-1.5">
-                            Là hiện tượng hai chùm sáng kết hợp khi chồng chất lên nhau tạo ra hệ vân sáng, vân tối ổn định trong không gian. Hai khe hẹp S₁, S₂ hoạt động như hai nguồn kết hợp đồng pha.
+                            Trong vùng hai chùm sáng gặp nhau lại có những vạch tối và vạch sáng xen kẽ nhau đã khẳng định ánh sáng có tính chất sóng.
+                          </p>
+                          <ul className="list-disc list-inside mt-1.5 space-y-1">
+                            <li><strong>Vạch sáng:</strong> Là chỗ hai sóng ánh sáng gặp nhau đồng pha, tăng cường lẫn nhau.</li>
+                            <li><strong>Vạch tối:</strong> Là chỗ hai sóng ánh sáng gặp nhau ngược pha, triệt tiêu lẫn nhau.</li>
+                          </ul>
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-slate-900 text-base">2. Công thức xác định bước sóng ánh sáng</h4>
+                          <p className="mt-1.5">
+                            Nếu đo được các đại lượng <Latex math="a" />, <Latex math="D" /> và khoảng vân <Latex math="i" />, ta sẽ xác định được bước sóng <Latex math="\lambda" /> của ánh sáng theo công thức:
+                          </p>
+                          <div className="bg-slate-100 px-2 py-1 rounded text-slate-850 inline-block mt-1.5">
+                            <Latex math="\lambda = \frac{i \cdot a}{D}" />
+                          </div>
+                          <p className="mt-1.5 text-xs text-slate-500 leading-relaxed">
+                            Trong đó: <Latex math="a" /> là khoảng cách giữa hai khe (<Latex math="F_1 F_2" />); <Latex math="D" /> là khoảng cách từ hai khe đến màn quan sát; <Latex math="i" /> là khoảng vân (khoảng cách giữa hai vân sáng hoặc hai vân tối liên tiếp).
                           </p>
                         </div>
                         <div>
-                          <h4 className="font-bold text-slate-900 text-base">2. Khoảng vân (Fringe width)</h4>
+                          <h4 className="font-bold text-slate-900 text-base">3. Điều kiện để xảy ra giao thoa</h4>
                           <p className="mt-1.5">
-                            Khoảng cách giữa hai vân sáng (hoặc hai vân tối) liên tiếp được gọi là khoảng vân i:
-                            <br />
-                            <code className="bg-slate-100 px-2 py-1 rounded font-mono text-slate-850 block mt-1.5">i = (λ · D) / a</code>
-                            Trong đó λ là bước sóng ánh sáng, D là khoảng cách từ khe tới màn, a là khoảng cách giữa hai khe.
-                          </p>
-                        </div>
-                        <div>
-                          <h4 className="font-bold text-slate-900 text-base">3. Điều kiện để có giao thoa ánh sáng</h4>
-                          <p className="mt-1.5">
-                            Nguồn sáng phát ra phải là hai nguồn sáng kết hợp: có cùng tần số (cùng bước sóng) và có hiệu số pha không đổi theo thời gian. Trong thí nghiệm khe Young, ánh sáng từ một nguồn đơn sắc đi qua hai khe hẹp trở thành hai nguồn kết hợp lý tưởng.
+                            Hai nguồn sóng phải là hai nguồn kết hợp: dao động cùng phương, cùng tần số và có độ lệch pha không đổi theo thời gian. Hiện tượng giao thoa là hiện tượng đặc trưng của sóng.
                           </p>
                         </div>
                       </div>
                     ) : (
                       <div className="text-sm text-slate-700 space-y-4.5 leading-relaxed">
                         <div>
-                          <h4 className="font-bold text-slate-900 text-base">1. Sóng Cơ & Phân Loại</h4>
-                          <p className="mt-1.5">
-                            Sóng là dao động lan truyền trong không gian theo thời gian. 
-                            <br />- <strong>Sóng ngang (Transverse):</strong> Các hạt môi trường dao động vuông góc với phương truyền sóng (ví dụ: sóng trên mặt nước, sóng trên dây đàn).
-                            <br />- <strong>Sóng dọc (Longitudinal):</strong> Các hạt dao động trùng với phương truyền sóng (ví dụ: sóng âm thanh truyền trong không khí, sóng lò xo dọc).
-                          </p>
+                          <h4 className="font-bold text-slate-900 text-base">1. Sóng cơ & Phân loại</h4>
+                          <p className="mt-1.5"><strong>Sóng cơ:</strong> Là những biến dạng cơ lan truyền trong một môi trường đàn hồi. Sóng mang năng lượng đi xa mà không mang các phần tử vật chất đi cùng (các phần tử chỉ dao động tại chỗ quanh vị trí cân bằng).</p>
+                          <ul className="list-disc list-inside mt-1.5 space-y-1">
+                            <li><strong>Sóng ngang:</strong> Sóng trong đó các phần tử của môi trường dao động theo phương vuông góc với phương truyền sóng (ví dụ: sóng trên mặt nước, sóng trên dây đàn).</li>
+                            <li><strong>Sóng dọc:</strong> Sóng trong đó các phần tử của môi trường dao động theo phương trùng với phương truyền sóng (ví dụ: sóng âm truyền trong không khí, sóng trên lò xo dọc).</li>
+                          </ul>
                         </div>
                         <div>
-                          <h4 className="font-bold text-slate-900 text-base">2. Bước Sóng & Chu Kỳ</h4>
-                          <p className="mt-1.5">
-                            <strong>Bước sóng (λ)</strong> là quãng đường sóng truyền đi được trong một chu kỳ dao động T. Hai phần tử cách nhau một số nguyên bước sóng thì dao động cùng pha.
-                          </p>
+                          <h4 className="font-bold text-slate-900 text-base">2. Các đại lượng đặc trưng của sóng</h4>
+                          <ul className="list-disc list-inside mt-1.5 space-y-1">
+                            <li><strong>Biên độ sóng (<Latex math="A" />):</strong> Độ lệch lớn nhất của phần tử sóng khỏi vị trí cân bằng. Biên độ sóng bằng biên độ dao động của nguồn sóng.</li>
+                            <li><strong>Chu kì sóng (<Latex math="T" />):</strong> Khoảng thời gian để hai ngọn sóng liên tiếp chạy qua một điểm đang xét. Chu kì của sóng bằng chu kì dao động của nguồn sóng.</li>
+                            <li><strong>Tần số sóng (<Latex math="f = 1/T" />):</strong> Số các ngọn sóng đi qua một điểm đang xét trong một đơn vị thời gian. Tần số sóng bằng tần số dao động của nguồn sóng.</li>
+                            <li><strong>Tốc độ truyền sóng (<Latex math="v" />):</strong> Tốc độ lan truyền biến dạng (chỉ phụ thuộc vào tính chất của môi trường truyền sóng).</li>
+                            <li><strong>Bước sóng (<Latex math="\lambda" />):</strong> Khoảng cách giữa hai ngọn sóng liên tiếp. Bước sóng bằng quãng đường mà sóng truyền đi được trong một chu kì:
+                              <br />
+                              <div className="bg-slate-100 px-2 py-1 rounded text-slate-850 inline-block mt-1">
+                                <Latex math="\lambda = v T = \frac{v}{f}" />
+                              </div>
+                            </li>
+                          </ul>
                         </div>
                         <div>
-                          <h4 className="font-bold text-slate-900 text-base">3. Giao Thoa Sóng</h4>
-                          <p className="mt-1.5">
-                            Khi hai sóng kết hợp (cùng tần số, cùng pha hoặc có độ lệch pha không đổi) gặp nhau, tại các điểm giao thoa sẽ xuất hiện các điểm cực đại (gặp nhau cùng pha, hỗ trợ lẫn nhau) và cực tiểu (ngược pha, triệt tiêu lẫn nhau) ổn định trong không gian.
-                          </p>
+                          <h4 className="font-bold text-slate-900 text-base">3. Giao thoa sóng & Sóng dừng</h4>
+                          <p className="mt-1.5"><strong>Giao thoa sóng:</strong> Hiện tượng hai sóng kết hợp gặp nhau tạo nên các gợn sóng ổn định. Trong đó:</p>
+                          <ul className="list-disc list-inside mt-1.5 space-y-1">
+                            <li>Những điểm tại đó hai sóng gặp nhau đồng pha thì dao động mạnh (cực đại).</li>
+                            <li>Những điểm tại đó hai sóng gặp nhau ngược pha thì đứng yên (cực tiểu).</li>
+                          </ul>
+                          <p className="mt-2.5"><strong>Sóng dừng:</strong> Sóng tổng hợp tạo thành khi hai sóng cùng biên độ, cùng tần số lan truyền theo hai hướng ngược nhau giao thoa với nhau. Gồm có:</p>
+                          <ul className="list-disc list-inside mt-1.5 space-y-1">
+                            <li><strong>Nút sóng:</strong> Những điểm luôn đứng yên.</li>
+                            <li><strong>Bụng sóng:</strong> Những điểm luôn dao động với biên độ cực đại.</li>
+                            <li>Hai nút liên tiếp cách nhau <div className="inline-block bg-slate-100 px-1 py-0.2 rounded font-mono text-slate-850"><Latex math="\lambda / 2" /></div>, xen giữa chúng là một bụng sóng.</li>
+                          </ul>
                         </div>
                       </div>
                     )}
@@ -417,4 +496,3 @@ export default function App() {
     </div>
   );
 }
-

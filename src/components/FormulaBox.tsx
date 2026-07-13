@@ -5,7 +5,7 @@ import katex from "katex";
 import "katex/dist/katex.min.css";
 
 // Reusable high-fidelity LaTeX renderer component using KaTeX
-function Latex({ math, block = false }: { math: string; block?: boolean }) {
+export function Latex({ math, block = false }: { math: string; block?: boolean }) {
   const containerRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
