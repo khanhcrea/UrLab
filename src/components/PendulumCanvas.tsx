@@ -21,6 +21,7 @@ export default function PendulumCanvas({ params, setParams, onSaveObservation }:
   const [showProtractor, setShowProtractor] = useState(true);
   const [showCoordinateAxis, setShowCoordinateAxis] = useState(true);
   const trailRef = useRef<{ x: number; y: number; opacity: number }[]>([]);
+  const accumulatorRef = useRef(0);
 
   // Refs for animation loop to avoid dependency lag
   const stateRef = useRef({
@@ -40,6 +41,7 @@ export default function PendulumCanvas({ params, setParams, onSaveObservation }:
     if (!stateRef.current.dragging) {
       stateRef.current.theta = (params.initialAngle * Math.PI) / 180;
       stateRef.current.omega = 0;
+      accumulatorRef.current = 0;
       setTheta((params.initialAngle * Math.PI) / 180);
       setOmega(0);
       trailRef.current = [];
@@ -83,17 +85,21 @@ export default function PendulumCanvas({ params, setParams, onSaveObservation }:
       // 1. Physics Step with sub-stepping for extreme smoothness and stability
       if (stateRef.current.isPlaying && !stateRef.current.dragging) {
         const fixedDt = 0.001; // 1ms sub-steps for ultra-high precision
-        let accumulator = dt;
-        if (accumulator > 0.1) accumulator = 0.1;
+        accumulatorRef.current += dt;
+        
+        // Cap accumulator to prevent lag spikes
+        if (accumulatorRef.current > 0.1) {
+          accumulatorRef.current = 0.1;
+        }
 
-        while (accumulator >= fixedDt) {
+        while (accumulatorRef.current >= fixedDt) {
           // Equation of motion: alpha = -(g/L) * sin(theta) - (damping / m) * omega
           const alpha = -(g / L) * Math.sin(stateRef.current.theta) - (b / m) * stateRef.current.omega;
           
           // Euler-Cromer integration (stable for oscillatory systems)
           stateRef.current.omega += alpha * fixedDt;
           stateRef.current.theta += stateRef.current.omega * fixedDt;
-          accumulator -= fixedDt;
+          accumulatorRef.current -= fixedDt;
         }
 
         // Sync with React states for UI indicators
@@ -507,22 +513,32 @@ export default function PendulumCanvas({ params, setParams, onSaveObservation }:
   const kineticEnergy = 0.5 * m * vLinear * vLinear;
   const totalEnergy = potentialEnergy + kineticEnergy;
 
-  const maxTotalEnergyRef = useRef(1);
+  const maxTotalEnergyRef = useRef(0.0001);
   useEffect(() => {
     // Track maximum energy dynamically to keep bars scaled
     if (totalEnergy > maxTotalEnergyRef.current) {
-      maxTotalEnergyRef.current = Math.max(totalEnergy, 1);
+      maxTotalEnergyRef.current = Math.max(totalEnergy, 0.0001);
     }
   }, [totalEnergy]);
 
   // Reset max energy tracker when parameters update
   useEffect(() => {
-    maxTotalEnergyRef.current = 1;
+    maxTotalEnergyRef.current = 0.0001;
   }, [params.length, params.gravity, params.mass, params.initialAngle]);
+
+  const formatEnergy = (value: number) => {
+    const val = Math.max(0, value);
+    if (val === 0) return "0 J";
+    if (val < 0.001) {
+      return `${(val * 1000).toFixed(2)} mJ`;
+    }
+    return `${val.toFixed(3)} J`;
+  };
 
   const handleReset = () => {
     stateRef.current.theta = (params.initialAngle * Math.PI) / 180;
     stateRef.current.omega = 0;
+    accumulatorRef.current = 0;
     setTheta((params.initialAngle * Math.PI) / 180);
     setOmega(0);
     trailRef.current = [];
@@ -602,11 +618,11 @@ export default function PendulumCanvas({ params, setParams, onSaveObservation }:
             <div className="space-y-1">
               <div className="flex justify-between">
                 <span className="text-emerald-450">Động Năng (E_d)</span>
-                <span>{kineticEnergy.toFixed(3)} J</span>
+                <span>{formatEnergy(kineticEnergy)}</span>
               </div>
               <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-emerald-500 rounded-full transition-all duration-75"
+                  className="h-full bg-emerald-500 rounded-full"
                   style={{ width: `${Math.min((kineticEnergy / maxTotalEnergyRef.current) * 100, 100)}%` }}
                 />
               </div>
@@ -616,11 +632,11 @@ export default function PendulumCanvas({ params, setParams, onSaveObservation }:
             <div className="space-y-1">
               <div className="flex justify-between">
                 <span className="text-sky-400">Thế Năng (E_t)</span>
-                <span>{potentialEnergy.toFixed(3)} J</span>
+                <span>{formatEnergy(potentialEnergy)}</span>
               </div>
               <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-sky-500 rounded-full transition-all duration-75"
+                  className="h-full bg-sky-500 rounded-full"
                   style={{ width: `${Math.min((potentialEnergy / maxTotalEnergyRef.current) * 100, 100)}%` }}
                 />
               </div>
@@ -630,7 +646,7 @@ export default function PendulumCanvas({ params, setParams, onSaveObservation }:
             <div className="space-y-1">
               <div className="flex justify-between">
                 <span className="text-teal-400 font-bold">Cơ Năng Toàn Phần</span>
-                <span>{totalEnergy.toFixed(3)} J</span>
+                <span>{formatEnergy(totalEnergy)}</span>
               </div>
               <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
                 <div

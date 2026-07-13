@@ -21,6 +21,8 @@ export default function SpringCanvas({ params, setParams, onSaveObservation }: S
   const [showEquilibrium, setShowEquilibrium] = useState(true);
   const [showCoordinateAxis, setShowCoordinateAxis] = useState(true);
 
+  const accumulatorRef = useRef(0);
+
   // Refs for physics loop
   const stateRef = useRef({
     x: params.initialX / 100,
@@ -38,6 +40,7 @@ export default function SpringCanvas({ params, setParams, onSaveObservation }: S
     if (!stateRef.current.dragging) {
       stateRef.current.x = params.initialX / 100;
       stateRef.current.v = 0;
+      accumulatorRef.current = 0;
       setX(params.initialX / 100);
       setV(0);
     }
@@ -63,15 +66,26 @@ export default function SpringCanvas({ params, setParams, onSaveObservation }: S
       const m = params.mass;
       const b = params.damping;
 
-      // 1. Physics update
+      // 1. Physics update with sub-stepping for extreme smoothness and stability
       if (stateRef.current.isPlaying && !stateRef.current.dragging) {
-        // Force F = -k*x - b*v
-        const F = -k * stateRef.current.x - b * stateRef.current.v;
-        const acceleration = F / m;
+        const fixedDt = 0.001; // 1ms sub-steps for ultra-high precision
+        accumulatorRef.current += dt;
+        
+        // Cap accumulator to prevent lag spikes
+        if (accumulatorRef.current > 0.1) {
+          accumulatorRef.current = 0.1;
+        }
 
-        // Euler-Cromer integration for stability
-        stateRef.current.v += acceleration * dt;
-        stateRef.current.x += stateRef.current.v * dt;
+        while (accumulatorRef.current >= fixedDt) {
+          // Force F = -k*x - b*v
+          const F = -k * stateRef.current.x - b * stateRef.current.v;
+          const acceleration = F / m;
+
+          // Euler-Cromer integration for stability
+          stateRef.current.v += acceleration * fixedDt;
+          stateRef.current.x += stateRef.current.v * fixedDt;
+          accumulatorRef.current -= fixedDt;
+        }
 
         setX(stateRef.current.x);
         setV(stateRef.current.v);
@@ -415,6 +429,7 @@ export default function SpringCanvas({ params, setParams, onSaveObservation }: S
   const handleReset = () => {
     stateRef.current.x = params.initialX / 100;
     stateRef.current.v = 0;
+    accumulatorRef.current = 0;
     setX(params.initialX / 100);
     setV(0);
   };
@@ -426,16 +441,25 @@ export default function SpringCanvas({ params, setParams, onSaveObservation }: S
   const kineticEnergy = 0.5 * m * v * v; // 0.5 * m * v^2
   const totalEnergy = elasticEnergy + kineticEnergy;
 
-  const maxTotalEnergyRef = useRef(1.0);
+  const maxTotalEnergyRef = useRef(0.0001);
   useEffect(() => {
     if (totalEnergy > maxTotalEnergyRef.current) {
-      maxTotalEnergyRef.current = Math.max(totalEnergy, 0.1);
+      maxTotalEnergyRef.current = Math.max(totalEnergy, 0.0001);
     }
   }, [totalEnergy]);
 
   useEffect(() => {
-    maxTotalEnergyRef.current = 0.1;
+    maxTotalEnergyRef.current = 0.0001;
   }, [params.k, params.mass, params.initialX]);
+
+  const formatEnergy = (value: number) => {
+    const val = Math.max(0, value);
+    if (val === 0) return "0 J";
+    if (val < 0.001) {
+      return `${(val * 1000).toFixed(2)} mJ`;
+    }
+    return `${val.toFixed(3)} J`;
+  };
 
   const theoreticalPeriod = k > 0 ? 2 * Math.PI * Math.sqrt(m / k) : 0;
   const frequency = theoreticalPeriod > 0 ? 1 / theoreticalPeriod : 0;
@@ -511,11 +535,11 @@ export default function SpringCanvas({ params, setParams, onSaveObservation }: S
             <div className="space-y-1">
               <div className="flex justify-between">
                 <span className="text-emerald-450">Động Năng (W_đ)</span>
-                <span>{kineticEnergy.toFixed(4)} J</span>
+                <span>{formatEnergy(kineticEnergy)}</span>
               </div>
               <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-emerald-500 rounded-full transition-all duration-75"
+                  className="h-full bg-emerald-500 rounded-full"
                   style={{ width: `${Math.min((kineticEnergy / maxTotalEnergyRef.current) * 100, 100)}%` }}
                 />
               </div>
@@ -525,11 +549,11 @@ export default function SpringCanvas({ params, setParams, onSaveObservation }: S
             <div className="space-y-1">
               <div className="flex justify-between">
                 <span className="text-sky-400">Thế Năng Đàn Hồi (W_t)</span>
-                <span>{elasticEnergy.toFixed(4)} J</span>
+                <span>{formatEnergy(elasticEnergy)}</span>
               </div>
               <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-sky-500 rounded-full transition-all duration-75"
+                  className="h-full bg-sky-500 rounded-full"
                   style={{ width: `${Math.min((elasticEnergy / maxTotalEnergyRef.current) * 100, 100)}%` }}
                 />
               </div>
@@ -539,7 +563,7 @@ export default function SpringCanvas({ params, setParams, onSaveObservation }: S
             <div className="space-y-1">
               <div className="flex justify-between">
                 <span className="text-teal-400 font-bold">Cơ Năng (W)</span>
-                <span>{totalEnergy.toFixed(4)} J</span>
+                <span>{formatEnergy(totalEnergy)}</span>
               </div>
               <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
                 <div
