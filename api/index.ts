@@ -37,8 +37,8 @@ function getGeminiClient(): GoogleGenAI {
 async function generateContentWithRetry(
   ai: GoogleGenAI,
   params: Parameters<typeof ai.models.generateContent>[0],
-  maxRetries = 3,
-  delayMs = 1000
+  maxRetries = 6,
+  initialDelayMs = 1000
 ): Promise<ReturnType<typeof ai.models.generateContent>> {
   let attempt = 0;
   while (true) {
@@ -46,16 +46,28 @@ async function generateContentWithRetry(
       attempt++;
       return await ai.models.generateContent(params);
     } catch (error: any) {
-      const is503 = 
+      const errorStr = `${error.status} ${error.statusCode} ${error.message} ${JSON.stringify(error)}`.toLowerCase();
+      const isTransient = 
         error.status === 503 || 
         error.statusCode === 503 || 
-        (error.message && error.message.includes("503")) ||
-        (error.message && error.message.toLowerCase().includes("overloaded")) ||
-        (error.message && error.message.toLowerCase().includes("service unavailable"));
+        error.status === 429 || 
+        error.statusCode === 429 ||
+        errorStr.includes("503") ||
+        errorStr.includes("429") ||
+        errorStr.includes("overloaded") ||
+        errorStr.includes("service unavailable") ||
+        errorStr.includes("high demand") ||
+        errorStr.includes("temporary") ||
+        errorStr.includes("unavailable") ||
+        errorStr.includes("resource_exhausted") ||
+        errorStr.includes("resource exhausted") ||
+        errorStr.includes("rate limit") ||
+        errorStr.includes("rate_limit");
 
-      if (is503 && attempt < maxRetries) {
-        console.warn(`[Gemini API] Attempt ${attempt} failed with 503/Overloaded. Retrying in ${delayMs * attempt}ms...`);
-        await new Promise((resolve) => setTimeout(resolve, delayMs * attempt));
+      if (isTransient && attempt < maxRetries) {
+        const delay = initialDelayMs * Math.pow(2, attempt - 1) + Math.random() * 500;
+        console.warn(`[Gemini API Quiz] Attempt ${attempt} failed with transient error. Retrying in ${delay.toFixed(0)}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
         continue;
       }
       throw error;
@@ -405,7 +417,13 @@ INSTRUCTIONS FOR STANDARD/SGK 11 LEVEL PROBLEMS:
 - Relate explanations directly to how the student can adjust sliders or variables on their screen (ℓ, m, k, lambda, a, D) to witness the physics phenomenon live in UrLab. Use the actual live measurements/parameters provided in the state section below to personalize the instruction!
 
 FORMULA FORMATTING:
-- Write equations in clear, elegant, and highly readable formats. You can write equations in clean Unicode (e.g., T = 2π·√(ℓ/g), i = (λ·D)/a, λ = v/f) or use standard math notations (e.g. $...$ or $$...$$), as the client's interface includes a utility to automatically clean up and display standard symbols and structures nicely.
+- ALWAYS write mathematical expressions, equations, formulas, and physical units in standard LaTeX/KaTeX notation:
+  * Use DOUBLE dollar signs $$ ... $$ on a separate line for block equations/formulas (on their own line).
+  * Use SINGLE dollar sign $ ... $ for inline equations/formulas within a sentence.
+- CRITICAL: DO NOT use \\[ ... \\] or \\( ... \\) for formulas, as it may cause escape-character parsing issues in client-side JSON parsing. Always use single $ for inline math and double $$ for block math.
+- CRITICAL: NEVER wrap LaTeX formulas inside markdown code blocks (e.g., do NOT use \`\`\`latex ... \`\`\` or \`\`\`katex ... \`\`\`). Simply write the $ or $$ directly in the text body.
+- Ensure all physical quantities, variables, operations, and units are formatted in proper LaTeX (e.g., $T = 2\\pi\\sqrt{\\frac{\\ell}{g}}$, $i = \\frac{\\lambda D}{a}$, $\\lambda = \\frac{v}{f}$, $x(t) = A\\cos(\\omega t + \\varphi)$, or units like $\\text{rad/s}$, $\\text{Hz}$, $\\text{m/s}^2$).
+- Avoid raw Unicode math characters or plaintext fractions where LaTeX is more elegant, as the interface will render KaTeX beautifully.
 
 LANGUAGE:
 - Respond in the same language the user queried in (default to natural, academic, and clear Vietnamese unless they ask in English). Ensure standard, polite, and encouraging tone.
@@ -428,15 +446,16 @@ ${stateContext}`;
 
     let responseStream;
     let attempt = 0;
-    const maxRetries = 3;
-    const delayMs = 1000;
+    const maxRetries = 6;
+    const initialDelayMs = 1000;
+    let currentModel = "gemini-3.5-flash";
 
     try {
       while (true) {
         try {
           attempt++;
           responseStream = await ai.models.generateContentStream({
-            model: "gemini-2.5-flash",
+            model: currentModel,
             contents: formattedContents,
             config: {
               systemInstruction: systemInstruction,
@@ -445,17 +464,47 @@ ${stateContext}`;
           });
           break;
         } catch (error: any) {
+          const errorStr = `${error.status} ${error.statusCode} ${error.message} ${JSON.stringify(error)}`.toLowerCase();
+          
+          // Kiểm tra xem lỗi có phải do Google khóa/deprecate model "gemini-2.5-flash" hay không (để nâng cấp lùi ngược nếu có lỗi với model bất kỳ)
+          const isModelUnavailable = 
+            errorStr.includes("no longer available") ||
+            errorStr.includes("not found") ||
+            errorStr.includes("not_found") ||
+            errorStr.includes("not supported") ||
+            errorStr.includes("not_supported") ||
+            errorStr.includes("invalid") ||
+            errorStr.includes("unavailable");
+
+          if (isModelUnavailable && currentModel === "gemini-2.5-flash") {
+            console.warn(`[Backward Compatibility Alert] Model "${currentModel}" is deprecated or no longer available on Google Cloud API.`);
+            console.warn(`[Graceful Degradation] Automatically upgrading current request to "gemini-3.5-flash" to guarantee continuous system operation.`);
+            currentModel = "gemini-3.5-flash";
+            attempt = 0; // Reset attempts to start fresh with the new model
+            continue;
+          }
+
           const isTransient = 
             error.status === 503 || 
             error.statusCode === 503 || 
-            (error.message && error.message.includes("503")) ||
-            (error.message && error.message.toLowerCase().includes("overloaded")) ||
-            (error.message && error.message.toLowerCase().includes("service unavailable")) ||
-            (error.message && error.message.toLowerCase().includes("temporary"));
+            error.status === 429 || 
+            error.statusCode === 429 ||
+            errorStr.includes("503") ||
+            errorStr.includes("429") ||
+            errorStr.includes("overloaded") ||
+            errorStr.includes("service unavailable") ||
+            errorStr.includes("high demand") ||
+            errorStr.includes("temporary") ||
+            errorStr.includes("unavailable") ||
+            errorStr.includes("resource_exhausted") ||
+            errorStr.includes("resource exhausted") ||
+            errorStr.includes("rate limit") ||
+            errorStr.includes("rate_limit");
 
           if (isTransient && attempt < maxRetries) {
-            console.warn(`[Gemini API Stream] Attempt ${attempt} failed with transient error. Retrying in ${delayMs * attempt}ms...`);
-            await new Promise((resolve) => setTimeout(resolve, delayMs * attempt));
+            const delay = initialDelayMs * Math.pow(2, attempt - 1) + Math.random() * 500;
+            console.warn(`[Gemini API Stream] Attempt ${attempt} with ${currentModel} failed with transient error. Retrying in ${delay.toFixed(0)}ms...`);
+            await new Promise((resolve) => setTimeout(resolve, delay));
             continue;
           }
           throw error;
@@ -706,7 +755,7 @@ app.post(["/api/quiz", "/quiz"], async (req, res) => {
     const topicName = topicLabels[topicId] || topicLabels.pendulum;
 
     const response = await generateContentWithRetry(ai, {
-      model: "gemini-2.5-flash",
+      model: "gemini-3.5-flash",
       contents: [
         {
           role: "user",

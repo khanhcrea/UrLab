@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { HelpCircle, CheckCircle2, XCircle, Sparkles, RefreshCw, Trophy, ArrowRight, BrainCircuit } from "lucide-react";
 import { QuizQuestion } from "../types";
+import katex from "katex";
+import "katex/dist/katex.min.css";
 
 interface QuizBoxProps {
   experimentId: "pendulum" | "spring" | "wave" | "light";
@@ -14,6 +16,105 @@ export default function QuizBox({ experimentId }: QuizBoxProps) {
   const [hasSubmitted, setHasSubmitted] = useState<boolean>(false);
   const [score, setScore] = useState<{ correct: number; total: number }>({ correct: 0, total: 0 });
   const [error, setError] = useState<string | null>(null);
+
+  const formatQuizText = (text: string) => {
+    if (!text) return null;
+
+    const tokens: Array<{ type: "text" | "inline-math" | "block-math"; content: string }> = [];
+    let currentIndex = 0;
+
+    const mathRegex = /(\$\$([\s\S]*?)\$\$)|(\\\[([\s\S]*?)\\\])|(\$([^\$\n]+?)\$)|(\\\(([\s\S]*?)\\\))/g;
+
+    let match;
+    while ((match = mathRegex.exec(text)) !== null) {
+      const matchIndex = match.index;
+      
+      if (matchIndex > currentIndex) {
+        tokens.push({
+          type: "text",
+          content: text.substring(currentIndex, matchIndex),
+        });
+      }
+
+      if (match[1] !== undefined) {
+        tokens.push({ type: "block-math", content: match[2] });
+      } else if (match[3] !== undefined) {
+        tokens.push({ type: "block-math", content: match[4] });
+      } else if (match[5] !== undefined) {
+        tokens.push({ type: "inline-math", content: match[6] });
+      } else if (match[7] !== undefined) {
+        tokens.push({ type: "inline-math", content: match[8] });
+      }
+
+      currentIndex = mathRegex.lastIndex;
+    }
+
+    if (currentIndex < text.length) {
+      tokens.push({
+        type: "text",
+        content: text.substring(currentIndex),
+      });
+    }
+
+    return tokens.map((token, idx) => {
+      if (token.type === "block-math") {
+        try {
+          const html = katex.renderToString(token.content, {
+            displayMode: true,
+            throwOnError: false,
+          });
+          return (
+            <div
+              key={`block-math-${idx}`}
+              className="my-3 overflow-x-auto py-2 text-center bg-slate-50/70 rounded-xl px-3 border border-slate-100 scrollbar-thin select-all"
+              dangerouslySetInnerHTML={{ __html: html }}
+            />
+          );
+        } catch (err) {
+          return <span key={`err-${idx}`}>$${token.content}$$</span>;
+        }
+      } else if (token.type === "inline-math") {
+        try {
+          const html = katex.renderToString(token.content, {
+            displayMode: false,
+            throwOnError: false,
+          });
+          return (
+            <span
+              key={`inline-math-${idx}`}
+              className="inline-block px-0.5 align-middle font-serif"
+              dangerouslySetInnerHTML={{ __html: html }}
+            />
+          );
+        } catch (err) {
+          return <span key={`err-${idx}`}>${token.content}$</span>;
+        }
+      } else {
+        const boldRegex = /\*\*(.*?)\*\*/g;
+        const parts: React.ReactNode[] = [];
+        let lastBoldIdx = 0;
+        let boldMatch;
+
+        while ((boldMatch = boldRegex.exec(token.content)) !== null) {
+          if (boldMatch.index > lastBoldIdx) {
+            parts.push(token.content.substring(lastBoldIdx, boldMatch.index));
+          }
+          parts.push(
+            <strong key={`bold-${idx}-${boldMatch.index}`} className="font-semibold text-slate-900">
+              {boldMatch[1]}
+            </strong>
+          );
+          lastBoldIdx = boldRegex.lastIndex;
+        }
+
+        if (lastBoldIdx < token.content.length) {
+          parts.push(token.content.substring(lastBoldIdx));
+        }
+
+        return <span key={`text-${idx}`}>{parts.length > 0 ? parts : token.content}</span>;
+      }
+    });
+  };
 
   // Auto update topic when the lab experiment tab changes
   useEffect(() => {
@@ -139,9 +240,9 @@ export default function QuizBox({ experimentId }: QuizBoxProps) {
             <div className="absolute top-0 left-0 w-1 bg-purple-600 h-full" />
             <div className="flex items-start gap-2.5">
               <HelpCircle className="h-5 w-5 text-purple-600 shrink-0 mt-0.5" />
-              <p className="text-sm sm:text-base font-bold text-slate-850 leading-relaxed select-text">
-                {question.question}
-              </p>
+              <div className="text-sm sm:text-base font-bold text-slate-850 leading-relaxed select-text">
+                {formatQuizText(question.question)}
+              </div>
             </div>
           </div>
 
@@ -180,7 +281,7 @@ export default function QuizBox({ experimentId }: QuizBoxProps) {
                   <span className={`flex h-7 w-7 items-center justify-center rounded-lg font-bold text-xs shrink-0 transition-colors ${badgeStyle}`}>
                     {optionLabels[index]}
                   </span>
-                  <span className="flex-1 text-slate-800 font-medium text-xs sm:text-sm">{option}</span>
+                  <span className="flex-1 text-slate-800 font-medium text-xs sm:text-sm">{formatQuizText(option)}</span>
                   
                   {hasSubmitted && isCorrect && (
                     <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
@@ -200,9 +301,9 @@ export default function QuizBox({ experimentId }: QuizBoxProps) {
                 <Sparkles className="h-4.5 w-4.5 text-amber-500" />
                 <span>Giải thích từ Tutor AI</span>
               </div>
-              <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-medium select-text">
-                {question.explanation}
-              </p>
+              <div className="text-xs sm:text-sm text-slate-700 leading-relaxed font-medium select-text">
+                {formatQuizText(question.explanation)}
+              </div>
               
               {/* Next Question action */}
               <div className="pt-2 flex justify-end">

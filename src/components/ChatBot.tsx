@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
 import { MessageSquare, X, Send, Sparkles, Loader2, RefreshCw } from "lucide-react";
 import { ChatMessage } from "../types";
+import katex from "katex";
+import "katex/dist/katex.min.css";
 
 interface ChatBotProps {
   activeExperiment: "pendulum" | "wave" | "spring" | "light";
@@ -153,76 +155,152 @@ export default function ChatBot({ activeExperiment, params }: ChatBotProps) {
     }
   };
 
-  const cleanMathExpressions = (text: string): string => {
-    if (!text) return "";
-    let clean = text;
-
-    clean = clean.replace(/\$\$(.*?)\$\$/g, "$1");
-    clean = clean.replace(/\$(.*?)\$/g, "$1");
-    clean = clean.replace(/\\\[(.*?)\\\]/g, "$1");
-    clean = clean.replace(/\\\((.*?)\\\)/g, "$1");
-
-    clean = clean.replace(/\\pi/g, "π");
-    clean = clean.replace(/\\lambda/g, "λ");
-    clean = clean.replace(/\\sqrt/g, "√");
-    clean = clean.replace(/\\omega/g, "ω");
-    clean = clean.replace(/\\theta/g, "θ");
-    clean = clean.replace(/\\Delta/g, "Δ");
-    clean = clean.replace(/\\cdot/g, "·");
-    clean = clean.replace(/\\times/g, "×");
-    clean = clean.replace(/\\pm/g, "±");
-
-    const fracRegex = /\\frac\s*\{(.*?)\}\s*\{(.*?)\}/g;
-    while (fracRegex.test(clean)) {
-      clean = clean.replace(fracRegex, "($1 / $2)");
-    }
-
-    const sqrtBracesRegex = /√\s*\{(.*?)\}/g;
-    while (sqrtBracesRegex.test(clean)) {
-      clean = clean.replace(sqrtBracesRegex, "√($1)");
-    }
-
-    clean = clean.replace(/_\{(.*?)\}/g, "$1");
-
-    return clean;
-  };
-
   const formatMessageText = (text: string) => {
-    const cleanedText = cleanMathExpressions(text);
-    return cleanedText.split("\n").map((line, index) => {
-      let displayLine = line;
-      let isBullet = false;
-      const trimmed = line.trim();
-      if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
-        isBullet = true;
-        // Strip leading list marker
-        displayLine = line.replace(/^\s*[-*]\s/, "");
-      } else if (trimmed === "-" || trimmed === "*") {
-        isBullet = true;
-        displayLine = "";
-      }
+    if (!text) return null;
 
-      const boldRegex = /\*\*(.*?)\*\*/g;
-      const parts = [];
-      let lastIdx = 0;
-      let match;
+    // Tokenize text into math segments and text segments
+    // Detects $$...$$, \[...\], $...$, \(...\)
+    const tokens: Array<{ type: "text" | "inline-math" | "block-math"; content: string }> = [];
+    let currentIndex = 0;
+
+    const mathRegex = /(\$\$([\s\S]*?)\$\$)|(\\\[([\s\S]*?)\\\])|(\$([^\$\n]+?)\$)|(\\\(([\s\S]*?)\\\))/g;
+
+    let match;
+    while ((match = mathRegex.exec(text)) !== null) {
+      const matchIndex = match.index;
       
-      while ((match = boldRegex.exec(displayLine)) !== null) {
-        if (match.index > lastIdx) {
-          parts.push(displayLine.substring(lastIdx, match.index));
-        }
-        parts.push(<strong key={match.index} className="font-bold text-slate-900">{match[1]}</strong>);
-        lastIdx = boldRegex.lastIndex;
-      }
-      if (lastIdx < displayLine.length) {
-        parts.push(displayLine.substring(lastIdx));
+      // Plain text before the match
+      if (matchIndex > currentIndex) {
+        tokens.push({
+          type: "text",
+          content: text.substring(currentIndex, matchIndex),
+        });
       }
 
-      return (
-        <p key={index} className={`leading-relaxed ${isBullet ? "pl-4 list-item list-disc ml-4" : "mt-1"}`}>
-          {parts.length > 0 ? parts : displayLine}
-        </p>
-      );
+      // Determine matching type and save it
+      if (match[1] !== undefined) {
+        tokens.push({ type: "block-math", content: match[2] });
+      } else if (match[3] !== undefined) {
+        tokens.push({ type: "block-math", content: match[4] });
+      } else if (match[5] !== undefined) {
+        tokens.push({ type: "inline-math", content: match[6] });
+      } else if (match[7] !== undefined) {
+        tokens.push({ type: "inline-math", content: match[8] });
+      }
+
+      currentIndex = mathRegex.lastIndex;
+    }
+
+    if (currentIndex < text.length) {
+      tokens.push({
+        type: "text",
+        content: text.substring(currentIndex),
+      });
+    }
+
+    // Process each token
+    return tokens.map((token, idx) => {
+      if (token.type === "block-math") {
+        try {
+          const html = katex.renderToString(token.content, {
+            displayMode: true,
+            throwOnError: false,
+          });
+          return (
+            <div
+              key={`block-math-${idx}`}
+              className="my-3 overflow-x-auto py-2 text-center bg-slate-50/70 rounded-xl px-3 border border-slate-100 scrollbar-thin select-all"
+              dangerouslySetInnerHTML={{ __html: html }}
+            />
+          );
+        } catch (err) {
+          return (
+            <div key={`block-math-err-${idx}`} className="text-red-500 font-mono text-[10px] my-2 p-1 bg-red-50 rounded">
+              $$ {token.content} $$
+            </div>
+          );
+        }
+      } else if (token.type === "inline-math") {
+        try {
+          const html = katex.renderToString(token.content, {
+            displayMode: false,
+            throwOnError: false,
+          });
+          return (
+            <span
+              key={`inline-math-${idx}`}
+              className="inline-block px-1 align-middle"
+              dangerouslySetInnerHTML={{ __html: html }}
+            />
+          );
+        } catch (err) {
+          return (
+            <span key={`inline-math-err-${idx}`} className="text-red-500 font-mono text-[10px] px-1 bg-red-50 rounded">
+              ${token.content}$
+            </span>
+          );
+        }
+      } else {
+        // Render standard markdown-like lines
+        const lines = token.content.split("\n");
+        return lines.map((line, lineIdx) => {
+          let displayLine = line;
+          let isBullet = false;
+          const trimmed = line.trim();
+
+          if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
+            isBullet = true;
+            displayLine = line.replace(/^\s*[-*]\s/, "");
+          } else if (trimmed === "-" || trimmed === "*") {
+            isBullet = true;
+            displayLine = "";
+          }
+
+          // Parse bold text (**text**)
+          const boldRegex = /\*\*(.*?)\*\*/g;
+          const parts: React.ReactNode[] = [];
+          let lastBoldIdx = 0;
+          let boldMatch;
+
+          while ((boldMatch = boldRegex.exec(displayLine)) !== null) {
+            if (boldMatch.index > lastBoldIdx) {
+              parts.push(displayLine.substring(lastBoldIdx, boldMatch.index));
+            }
+            parts.push(
+              <strong key={`bold-${idx}-${lineIdx}-${boldMatch.index}`} className="font-semibold text-slate-900">
+                {boldMatch[1]}
+              </strong>
+            );
+            lastBoldIdx = boldRegex.lastIndex;
+          }
+
+          if (lastBoldIdx < displayLine.length) {
+            parts.push(displayLine.substring(lastBoldIdx));
+          }
+
+          // Spacing for empty lines in blocks
+          if (trimmed === "" && lineIdx > 0 && lineIdx < lines.length - 1) {
+            return <div key={`spacer-${idx}-${lineIdx}`} className="h-1.5" />;
+          }
+
+          const contentNode = parts.length > 0 ? parts : displayLine;
+
+          if (isBullet) {
+            return (
+              <div key={`bullet-${idx}-${lineIdx}`} className="flex items-start gap-1.5 ml-2 mt-1 leading-relaxed text-slate-700">
+                <span className="text-blue-500 mt-1 select-none">•</span>
+                <span className="flex-1">{contentNode}</span>
+              </div>
+            );
+          } else {
+            return (
+              <p key={`p-${idx}-${lineIdx}`} className="mt-1 leading-relaxed text-slate-700">
+                {contentNode}
+              </p>
+            );
+          }
+        });
+      }
     });
   };
 
