@@ -1,6 +1,6 @@
 import express from "express";
 import path from "path";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 
 const app = express();
 const PORT = 3000;
@@ -322,18 +322,31 @@ app.post(["/api/chat", "/chat"], async (req, res) => {
 
     // Helper function to stream plain text for fallbacks and errors with typed effect
     const streamFallbackText = async (text: string) => {
+      if (res.writableEnded || res.destroyed) return;
       const words = text.split(" ");
       let currentChunk = "";
       for (let i = 0; i < words.length; i++) {
+        if (res.writableEnded || res.destroyed) return;
         currentChunk += (i === 0 ? "" : " ") + words[i];
         if (currentChunk.length > 20 || i === words.length - 1) {
-          res.write(`data: ${JSON.stringify({ text: currentChunk })}\n\n`);
+          try {
+            res.write(`data: ${JSON.stringify({ text: currentChunk })}\n\n`);
+          } catch (e) {
+            console.warn("Write failed during fallback stream:", e);
+            return;
+          }
           currentChunk = "";
           await new Promise((resolve) => setTimeout(resolve, 15)); // fast simulated typing
         }
       }
-      res.write("data: [DONE]\n\n");
-      res.end();
+      if (!res.writableEnded && !res.destroyed) {
+        try {
+          res.write("data: [DONE]\n\n");
+          res.end();
+        } catch (e) {
+          console.warn("End failed during fallback stream:", e);
+        }
+      }
     };
 
     let ai;
@@ -399,22 +412,14 @@ Tính toán lý thuyết tương ứng:
       stateContext += `\nLưu ý: Bạn hãy chủ động nhắc đến những con số cụ thể này khi học sinh hỏi những câu hỏi có tính chất chung chung hoặc khi muốn hướng dẫn họ thực hành trực tiếp ngay trên màn hình!\n---------------------------------------------------------------\n`;
     }
 
-    const systemInstruction = `You are "UrLab Tutor" - a world-class AI Physics Expert, Professor, and Encouraging Tutor. You are designed to assist students and researchers at ALL levels of physics:
-- From basic high school physics aligning with "Sách giáo khoa Vật lý 11 - Kết nối tri thức với cuộc sống" (con lắc đơn, con lắc lò xo, giao thoa sóng cơ, giao thoa ánh sáng).
-- To advanced university physics, and elite national and international Olympiad levels (IPHO - International Physics Olympiad, APhO).
-You have a deep mastery of classical mechanics, electromagnetism, thermodynamics, optics, relativity, quantum mechanics, and advanced mathematical physics (calculus, differential equations, vector analysis, Lagrangian/Hamiltonian mechanics).
+    const systemInstruction = `You are "UrLab Tutor" - a world-class AI Physics Expert and an encouraging, highly focused Tutor.
+You assist students with high school physics (Dao động cơ & Sóng cơ, giao thoa ánh sáng - SGK Vật lý 11 Kết nối tri thức) and advanced levels.
 
-INSTRUCTIONS FOR SOLVING COMPLEX/IPHO PHYSICS PROBLEMS:
-1. RIGOROUS SYSTEM ANALYSIS: Always start by carefully analyzing the physical system. Identify all relevant coordinates, forces, fields, potentials, and boundary conditions. State the physical approximations being made.
-2. CONSERVATION LAWS: Explicitly identify and apply relevant conservation laws (momentum, angular momentum, mechanical energy, charge, etc.) or thermodynamic principles.
-3. MATHEMATICAL MODELING: Establish exact governing equations using calculus (differentiation, integration, differential equations) or formal formalisms (Newtonian, Lagrangian, Maxwell's equations).
-4. STEP-BY-STEP ANALYTICAL DERIVATION: Show detailed, logical, and rigorous algebraic derivations. Do not skip crucial mathematical transitions; explain the physics behind each mathematical step.
-5. DIMENSIONAL & LIMITING CASE CHECKS: Verify the correctness of your analytical solution by checking physical dimensions/units and analyzing limiting cases (e.g., when physical parameters tend to zero or infinity).
-6. EXQUISITE PRESENTATION: Use clear headings, numbered bullet steps, and bold key results. If numerical values are provided, calculate the final numerical answer accurately with units.
-
-INSTRUCTIONS FOR STANDARD/SGK 11 LEVEL PROBLEMS:
-- Maintain an encouraging, friendly, and accessible tone. Explain the fundamental principles clearly.
-- Relate explanations directly to how the student can adjust sliders or variables on their screen (ℓ, m, k, lambda, a, D) to witness the physics phenomenon live in UrLab. Use the actual live measurements/parameters provided in the state section below to personalize the instruction!
+CRITICAL INSTRUCTIONS FOR MAXIMUM SPEED, CLARITY AND COHERENCE:
+1. NO PREAMBLE: Start explaining immediately! Do NOT include greetings, intro phrases like "Dưới đây là lời giải chi tiết cho câu hỏi của bạn:", or general pleasantries. Go straight to the physical concepts.
+2. NO POSTAMBLE: Do NOT include conclusion sentences or generic outro lines like "Hy vọng câu trả lời này giúp ích cho bạn!".
+3. STRUCTURE & BREVITY: Keep your answer compact, scannable, and extremely clear. Use bold bullet points and numbered steps. Limit the output to 1-3 short, dense paragraphs or a few key points.
+4. INTEGRATE SCREEN STATE: Proactively connect physical concepts with the student's live measurements/parameters in UrLab (L, g, m, k, f, v, a, D, lambda) to show how altering sliders impacts the phenomenon.
 
 FORMULA FORMATTING:
 - ALWAYS write mathematical expressions, equations, formulas, and physical units in standard LaTeX/KaTeX notation:
@@ -426,7 +431,7 @@ FORMULA FORMATTING:
 - Avoid raw Unicode math characters or plaintext fractions where LaTeX is more elegant, as the interface will render KaTeX beautifully.
 
 LANGUAGE:
-- Respond in the same language the user queried in (default to natural, academic, and clear Vietnamese unless they ask in English). Ensure standard, polite, and encouraging tone.
+- Respond in natural, clear academic Vietnamese (or English if queried in English). Always be polite, precise, and scientifically accurate.
 
 ${stateContext}`;
 
@@ -454,19 +459,28 @@ ${stateContext}`;
       while (true) {
         try {
           attempt++;
+          // Configure ThinkingLevel.MINIMAL for gemini-3 series models to completely disable reasoning delay and stream instantly.
+          const modelConfig: any = {
+            systemInstruction: systemInstruction,
+            temperature: 0.5,
+            maxOutputTokens: 1200,
+          };
+          if (currentModel.startsWith("gemini-3")) {
+            modelConfig.thinkingConfig = {
+              thinkingLevel: ThinkingLevel.MINIMAL
+            };
+          }
+
           responseStream = await ai.models.generateContentStream({
             model: currentModel,
             contents: formattedContents,
-            config: {
-              systemInstruction: systemInstruction,
-              temperature: 0.5, // lower temperature for more precise, accurate, and consistent responses
-            }
+            config: modelConfig
           });
           break;
         } catch (error: any) {
           const errorStr = `${error.status} ${error.statusCode} ${error.message} ${JSON.stringify(error)}`.toLowerCase();
           
-          // Kiểm tra xem lỗi có phải do Google khóa/deprecate model "gemini-2.5-flash" hay không (để nâng cấp lùi ngược nếu có lỗi với model bất kỳ)
+          // Bidirectional model fallback for maximum uptime compatibility
           const isModelUnavailable = 
             errorStr.includes("no longer available") ||
             errorStr.includes("not found") ||
@@ -476,12 +490,18 @@ ${stateContext}`;
             errorStr.includes("invalid") ||
             errorStr.includes("unavailable");
 
-          if (isModelUnavailable && currentModel === "gemini-2.5-flash") {
-            console.warn(`[Backward Compatibility Alert] Model "${currentModel}" is deprecated or no longer available on Google Cloud API.`);
-            console.warn(`[Graceful Degradation] Automatically upgrading current request to "gemini-3.5-flash" to guarantee continuous system operation.`);
-            currentModel = "gemini-3.5-flash";
-            attempt = 0; // Reset attempts to start fresh with the new model
-            continue;
+          if (isModelUnavailable) {
+            if (currentModel === "gemini-3.5-flash") {
+              console.warn(`[Backward Compatibility Alert] Model "${currentModel}" failed. Falling back to "gemini-2.5-flash"...`);
+              currentModel = "gemini-2.5-flash";
+              attempt = 0; // Reset attempts to start fresh with the fallback model
+              continue;
+            } else if (currentModel === "gemini-2.5-flash") {
+              console.warn(`[Backward Compatibility Alert] Model "${currentModel}" failed. Falling back to "gemini-3.5-flash"...`);
+              currentModel = "gemini-3.5-flash";
+              attempt = 0; // Reset attempts to start fresh with the fallback model
+              continue;
+            }
           }
 
           const isTransient = 
@@ -512,13 +532,26 @@ ${stateContext}`;
       }
 
       for await (const chunk of responseStream) {
+        if (res.writableEnded || res.destroyed) break;
         const text = chunk.text;
         if (text) {
-          res.write(`data: ${JSON.stringify({ text })}\n\n`);
+          try {
+            res.write(`data: ${JSON.stringify({ text })}\n\n`);
+          } catch (e) {
+            console.warn("Write stream chunk aborted:", e);
+            break;
+          }
         }
       }
-      res.write("data: [DONE]\n\n");
-      res.end();
+
+      if (!res.writableEnded && !res.destroyed) {
+        try {
+          res.write("data: [DONE]\n\n");
+          res.end();
+        } catch (e) {
+          console.warn("End stream failed:", e);
+        }
+      }
     } catch (streamError: any) {
       console.error("Gemini Streaming Error:", streamError);
       const friendlyError = getFriendlyErrorMessage(streamError.message || "");
@@ -759,7 +792,7 @@ app.post(["/api/quiz", "/quiz"], async (req, res) => {
       contents: [
         {
           role: "user",
-          parts: [{ text: `Tạo một câu hỏi trắc nghiệm vật lý 11 có đúng 4 lựa chọn (A, B, C, D) về chủ đề: "${topicName}". Hãy xuất ra định dạng JSON khớp hoàn toàn với schema yêu cầu. Câu hỏi cần mang tính giáo dục cao, kiểm tra hiểu biết định tính hoặc tính toán đơn giản, viết bằng tiếng Việt tự nhiên và thân thiện.` }]
+          parts: [{ text: `Tạo một câu hỏi trắc nghiệm vật lý 11 có đúng 4 lựa chọn (A, B, C, D) về chủ đề: "${topicName}". Hãy xuất ra định dạng JSON khớp hoàn toàn với schema yêu cầu. Câu hỏi cần mang tính giáo dục cao, kiểm tra hiểu biết định tính hoặc tính toán đơn giản, viết bằng tiếng Việt tự nhiên và thân thiện. Chú ý: Toàn bộ công thức vật lý, ký hiệu, đơn vị đo lường phải được viết dưới dạng mã LaTeX (sử dụng một cặp dấu đô-la lẻ $...$ cho inline math, tuyệt đối không dùng ký hiệu unicode thông thường hay dấu ngoặc vuông/tròn phức tạp).` }]
         }
       ],
       config: {
@@ -769,12 +802,12 @@ app.post(["/api/quiz", "/quiz"], async (req, res) => {
           properties: {
             question: { 
               type: "STRING",
-              description: "Câu hỏi trắc nghiệm ngắn gọn, rõ ràng bằng tiếng Việt. Chú ý: Viết công thức vật lý dưới dạng ký tự unicode đẹp đẽ, ví dụ: T = 2π·√(L/g) thay vì dùng mã LaTeX."
+              description: "Câu hỏi trắc nghiệm ngắn gọn, rõ ràng bằng tiếng Việt. Tất cả các ký hiệu, công thức, đơn vị phải được đặt trong dấu đô la đơn $...$, ví dụ: $T = 2\\pi\\sqrt{\\frac{\\ell}{g}}$."
             },
             options: {
               type: "ARRAY",
               items: { type: "STRING" },
-              description: "Mảng gồm đúng 4 câu trả lời lựa chọn (độ dài đúng bằng 4)"
+              description: "Mảng gồm đúng 4 câu trả lời lựa chọn (độ dài đúng bằng 4). Sử dụng $...$ cho bất kỳ ký hiệu, số lượng hoặc công thức nào."
             },
             correctAnswer: {
               type: "INTEGER",
@@ -782,12 +815,12 @@ app.post(["/api/quiz", "/quiz"], async (req, res) => {
             },
             explanation: { 
               type: "STRING", 
-              description: "Giải thích ngắn gọn, súc tích và dễ hiểu bằng tiếng Việt tại sao phương án đó là đúng, sử dụng công thức unicode."
+              description: "Giải thích ngắn gọn, súc tích và dễ hiểu bằng tiếng Việt tại sao phương án đó là đúng. Tất cả công thức và ký hiệu toán học/vật lý phải được bọc trong dấu đô-la đơn $...$."
             }
           },
           required: ["question", "options", "correctAnswer", "explanation"]
         },
-        temperature: 0.9,
+        temperature: 0.7,
       }
     });
 
