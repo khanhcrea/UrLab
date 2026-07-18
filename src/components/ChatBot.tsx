@@ -158,91 +158,139 @@ export default function ChatBot({ activeExperiment, params }: ChatBotProps) {
   const formatMessageText = (text: string) => {
     if (!text) return null;
 
-    // Tokenize text into math segments and text segments
-    // Detects $$...$$, \[...\], $...$, \(...\)
-    const tokens: Array<{ type: "text" | "inline-math" | "block-math"; content: string }> = [];
-    let currentIndex = 0;
+    // Helper function to recursively parse inline formatting (bold, math, etc.)
+    const parseInline = (inlineText: string, baseKey: string): React.ReactNode[] => {
+      const parts: React.ReactNode[] = [];
+      let lastIndex = 0;
+      // Regex matches: $...$ (group 1, 2), \(...\) (group 3, 4), and **...** (group 5, 6)
+      const inlineRegex = /(\$([^\$\n]+?)\$)|(\\\(([\s\S]*?)\\\))|(\*\*(.*?)\*\*)/g;
 
-    const mathRegex = /(\$\$([\s\S]*?)\$\$)|(\\\[([\s\S]*?)\\\])|(\$([^\$\n]+?)\$)|(\\\(([\s\S]*?)\\\))/g;
+      let match;
+      let idx = 0;
+      while ((match = inlineRegex.exec(inlineText)) !== null) {
+        if (match.index > lastIndex) {
+          parts.push(inlineText.substring(lastIndex, match.index));
+        }
+
+        const key = `${baseKey}-${idx++}`;
+        if (match[1] !== undefined) {
+          // Inline math $...$
+          const content = match[2];
+          try {
+            const html = katex.renderToString(content, {
+              displayMode: false,
+              throwOnError: false,
+            });
+            parts.push(
+              <span
+                key={`math-${key}`}
+                className="inline-block px-1 align-middle"
+                dangerouslySetInnerHTML={{ __html: html }}
+              />
+            );
+          } catch (err) {
+            parts.push(
+              <span key={`math-err-${key}`} className="text-red-500 font-mono text-[10px] px-1 bg-red-50 rounded">
+                ${content}$
+              </span>
+            );
+          }
+        } else if (match[3] !== undefined) {
+          // Inline math \(...\)
+          const content = match[4];
+          try {
+            const html = katex.renderToString(content, {
+              displayMode: false,
+              throwOnError: false,
+            });
+            parts.push(
+              <span
+                key={`math-${key}`}
+                className="inline-block px-1 align-middle"
+                dangerouslySetInnerHTML={{ __html: html }}
+              />
+            );
+          } catch (err) {
+            parts.push(
+              <span key={`math-err-${key}`} className="text-red-500 font-mono text-[10px] px-1 bg-red-50 rounded">
+                \({content}\)
+              </span>
+            );
+          }
+        } else if (match[5] !== undefined) {
+          // Bold text **...** (recursive call to allow math inside bold!)
+          const content = match[6];
+          parts.push(
+            <strong key={`bold-${key}`} className="font-semibold text-slate-900">
+              {parseInline(content, `${key}-bold`)}
+            </strong>
+          );
+        }
+
+        lastIndex = inlineRegex.lastIndex;
+      }
+
+      if (lastIndex < inlineText.length) {
+        parts.push(inlineText.substring(lastIndex));
+      }
+
+      return parts;
+    };
+
+    // First split entire content into block-math and normal text blocks
+    const blocks: Array<{ type: "block-math" | "text-lines"; content: string }> = [];
+    let currentIndex = 0;
+    const blockMathRegex = /(\$\$([\s\S]*?)\$\$)|(\\\[([\s\S]*?)\\\])/g;
 
     let match;
-    while ((match = mathRegex.exec(text)) !== null) {
-      const matchIndex = match.index;
-      
-      // Plain text before the match
-      if (matchIndex > currentIndex) {
-        tokens.push({
-          type: "text",
-          content: text.substring(currentIndex, matchIndex),
+    while ((match = blockMathRegex.exec(text)) !== null) {
+      if (match.index > currentIndex) {
+        blocks.push({
+          type: "text-lines",
+          content: text.substring(currentIndex, match.index),
         });
       }
 
-      // Determine matching type and save it
-      if (match[1] !== undefined) {
-        tokens.push({ type: "block-math", content: match[2] });
-      } else if (match[3] !== undefined) {
-        tokens.push({ type: "block-math", content: match[4] });
-      } else if (match[5] !== undefined) {
-        tokens.push({ type: "inline-math", content: match[6] });
-      } else if (match[7] !== undefined) {
-        tokens.push({ type: "inline-math", content: match[8] });
-      }
+      const mathContent = match[2] !== undefined ? match[2] : match[4];
+      blocks.push({
+        type: "block-math",
+        content: mathContent,
+      });
 
-      currentIndex = mathRegex.lastIndex;
+      currentIndex = blockMathRegex.lastIndex;
     }
 
     if (currentIndex < text.length) {
-      tokens.push({
-        type: "text",
+      blocks.push({
+        type: "text-lines",
         content: text.substring(currentIndex),
       });
     }
 
-    // Process each token
-    return tokens.map((token, idx) => {
-      if (token.type === "block-math") {
+    // Process blocks and build the React elements list
+    return blocks.flatMap((block, blockIdx) => {
+      if (block.type === "block-math") {
         try {
-          const html = katex.renderToString(token.content, {
+          const html = katex.renderToString(block.content, {
             displayMode: true,
             throwOnError: false,
           });
-          return (
+          return [
             <div
-              key={`block-math-${idx}`}
+              key={`block-math-${blockIdx}`}
               className="my-3 overflow-x-auto py-2 text-center bg-slate-50/70 rounded-xl px-3 border border-slate-100 scrollbar-thin select-all"
               dangerouslySetInnerHTML={{ __html: html }}
             />
-          );
+          ];
         } catch (err) {
-          return (
-            <div key={`block-math-err-${idx}`} className="text-red-500 font-mono text-[10px] my-2 p-1 bg-red-50 rounded">
-              $$ {token.content} $$
+          return [
+            <div key={`block-math-err-${blockIdx}`} className="text-red-500 font-mono text-[10px] my-2 p-1 bg-red-50 rounded">
+              $$ {block.content} $$
             </div>
-          );
-        }
-      } else if (token.type === "inline-math") {
-        try {
-          const html = katex.renderToString(token.content, {
-            displayMode: false,
-            throwOnError: false,
-          });
-          return (
-            <span
-              key={`inline-math-${idx}`}
-              className="inline-block px-1 align-middle"
-              dangerouslySetInnerHTML={{ __html: html }}
-            />
-          );
-        } catch (err) {
-          return (
-            <span key={`inline-math-err-${idx}`} className="text-red-500 font-mono text-[10px] px-1 bg-red-50 rounded">
-              ${token.content}$
-            </span>
-          );
+          ];
         }
       } else {
-        // Render standard markdown-like lines
-        const lines = token.content.split("\n");
+        const lines = block.content.split("\n");
         return lines.map((line, lineIdx) => {
           let displayLine = line;
           let isBullet = false;
@@ -256,46 +304,27 @@ export default function ChatBot({ activeExperiment, params }: ChatBotProps) {
             displayLine = "";
           }
 
-          // Parse bold text (**text**)
-          const boldRegex = /\*\*(.*?)\*\*/g;
-          const parts: React.ReactNode[] = [];
-          let lastBoldIdx = 0;
-          let boldMatch;
-
-          while ((boldMatch = boldRegex.exec(displayLine)) !== null) {
-            if (boldMatch.index > lastBoldIdx) {
-              parts.push(displayLine.substring(lastBoldIdx, boldMatch.index));
+          // Spacing for empty lines
+          if (trimmed === "") {
+            if (lineIdx > 0 && lineIdx < lines.length - 1) {
+              return <div key={`spacer-${blockIdx}-${lineIdx}`} className="h-1.5" />;
             }
-            parts.push(
-              <strong key={`bold-${idx}-${lineIdx}-${boldMatch.index}`} className="font-semibold text-slate-900">
-                {boldMatch[1]}
-              </strong>
-            );
-            lastBoldIdx = boldRegex.lastIndex;
+            return null; // ignore leading/trailing empty lines
           }
 
-          if (lastBoldIdx < displayLine.length) {
-            parts.push(displayLine.substring(lastBoldIdx));
-          }
-
-          // Spacing for empty lines in blocks
-          if (trimmed === "" && lineIdx > 0 && lineIdx < lines.length - 1) {
-            return <div key={`spacer-${idx}-${lineIdx}`} className="h-1.5" />;
-          }
-
-          const contentNode = parts.length > 0 ? parts : displayLine;
+          const parsedNodes = parseInline(displayLine, `inline-${blockIdx}-${lineIdx}`);
 
           if (isBullet) {
             return (
-              <div key={`bullet-${idx}-${lineIdx}`} className="flex items-start gap-1.5 ml-2 mt-1 leading-relaxed text-slate-700">
+              <div key={`bullet-${blockIdx}-${lineIdx}`} className="flex items-start gap-1.5 ml-2 mt-1 leading-relaxed text-slate-700">
                 <span className="text-blue-500 mt-1 select-none">•</span>
-                <span className="flex-1">{contentNode}</span>
+                <span className="flex-1">{parsedNodes}</span>
               </div>
             );
           } else {
             return (
-              <p key={`p-${idx}-${lineIdx}`} className="mt-1 leading-relaxed text-slate-700">
-                {contentNode}
+              <p key={`p-${blockIdx}-${lineIdx}`} className="mt-1 leading-relaxed text-slate-700">
+                {parsedNodes}
               </p>
             );
           }
