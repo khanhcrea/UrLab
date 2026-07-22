@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Play, Pause, RotateCcw, Save, Sliders, Info, Sparkles } from "lucide-react";
 import { LightInterferenceParams } from "../types";
+import { Latex } from "./FormulaBox";
 
 interface LightInterferenceCanvasProps {
   params: LightInterferenceParams;
@@ -733,13 +734,20 @@ export default function LightInterferenceCanvas({
             </div>
 
             {/* Note box to keep layout proportional */}
-            <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 text-xs text-indigo-900 leading-relaxed space-y-1.5">
-              <span className="font-bold block text-indigo-950">Công thức xác định vân sáng:</span>
-              <p className="font-mono bg-white/70 p-2 rounded border border-indigo-100 text-center text-sm font-bold text-indigo-700">
-                x_sáng = k · i = k · (λ · D / a)
-              </p>
-              <p className="text-slate-500">
-                Thay đổi bước sóng <strong className="text-indigo-850">λ</strong>, khoảng cách khe <strong className="text-indigo-850">a</strong> hoặc khoảng cách màn <strong className="text-indigo-850">D</strong> để quan sát sự thay đổi tức thời của khoảng vân giao thoa.
+            <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 text-xs text-indigo-900 leading-relaxed space-y-2">
+              <span className="font-bold block text-indigo-950 text-xs sm:text-sm">Công thức vị trí vân sáng & vân tối:</span>
+              <div className="bg-white/80 p-3 rounded-lg border border-indigo-100 space-y-2.5">
+                <div className="text-center font-bold text-indigo-900 text-xs sm:text-sm py-0.5 overflow-x-auto">
+                  <span className="text-indigo-600 font-semibold text-[11px] block mb-1">Vị trí vân sáng (bậc k):</span>
+                  <Latex math="x_{\text{sáng}} = k \cdot i = k \frac{\lambda D}{a} \quad (k \in \mathbb{Z})" block />
+                </div>
+                <div className="text-center font-bold text-indigo-900 text-xs sm:text-sm py-0.5 border-t border-indigo-100/70 pt-2 overflow-x-auto">
+                  <span className="text-indigo-600 font-semibold text-[11px] block mb-1">Vị trí vân tối:</span>
+                  <Latex math="x_{\text{tối}} = \left(k + \frac{1}{2}\right) i = \left(k + \frac{1}{2}\right) \frac{\lambda D}{a} \quad (k \in \mathbb{Z})" block />
+                </div>
+              </div>
+              <p className="text-slate-500 pt-0.5">
+                Thay đổi bước sóng <strong className="text-indigo-850"><Latex math="\lambda" /></strong>, khoảng cách khe <strong className="text-indigo-850"><Latex math="a" /></strong> hoặc khoảng cách màn <strong className="text-indigo-850"><Latex math="D" /></strong> để quan sát sự thay đổi tức thời của khoảng vân <strong className="text-indigo-850"><Latex math="i = \frac{\lambda D}{a}" /></strong>.
               </p>
             </div>
           </div>

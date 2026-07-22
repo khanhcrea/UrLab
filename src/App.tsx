@@ -415,12 +415,14 @@ export default function App() {
                           </ul>
                         </div>
                         <div>
-                          <h4 className="font-bold text-slate-900 text-base">2. Công thức xác định bước sóng ánh sáng</h4>
+                          <h4 className="font-bold text-slate-900 text-base">2. Công thức xác định vị trí vân & bước sóng</h4>
+                          <p className="mt-1.5">• <strong>Vị trí vân sáng:</strong> <Latex math="x_{\text{sáng}} = k \cdot i = k \frac{\lambda D}{a} \quad (k \in \mathbb{Z})" /></p>
+                          <p className="mt-1">• <strong>Vị trí vân tối:</strong> <Latex math="x_{\text{tối}} = \left(k + \frac{1}{2}\right) i = \left(k + \frac{1}{2}\right) \frac{\lambda D}{a} \quad (k \in \mathbb{Z})" /></p>
                           <p className="mt-1.5">
-                            Nếu đo được các đại lượng <Latex math="a" />, <Latex math="D" /> và khoảng vân <Latex math="i" />, ta sẽ xác định được bước sóng <Latex math="\lambda" /> của ánh sáng theo công thức:
+                            Nếu đo được các đại lượng <Latex math="a" />, <Latex math="D" /> và khoảng vân <Latex math="i" />, ta xác định bước sóng <Latex math="\lambda" /> theo công thức:
                           </p>
-                          <div className="bg-slate-100 px-2 py-1 rounded text-slate-850 inline-block mt-1.5">
-                            <Latex math="\lambda = \frac{i \cdot a}{D}" />
+                          <div className="bg-slate-100 px-3 py-1.5 rounded-lg text-slate-850 my-2 text-center font-bold">
+                            <Latex math="\lambda = \frac{i \cdot a}{D}" block />
                           </div>
                           <p className="mt-1.5 text-xs text-slate-500 leading-relaxed">
                             Trong đó: <Latex math="a" /> là khoảng cách giữa hai khe (<Latex math="F_1 F_2" />); <Latex math="D" /> là khoảng cách từ hai khe đến màn quan sát; <Latex math="i" /> là khoảng vân (khoảng cách giữa hai vân sáng hoặc hai vân tối liên tiếp).

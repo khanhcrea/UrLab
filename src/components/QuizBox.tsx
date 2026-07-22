@@ -82,7 +82,7 @@ export default function QuizBox({ experimentId }: QuizBoxProps) {
           return (
             <span
               key={`inline-math-${idx}`}
-              className="inline-block px-0.5 align-middle font-serif"
+              className="inline px-0.5 align-baseline font-serif"
               dangerouslySetInnerHTML={{ __html: html }}
             />
           );

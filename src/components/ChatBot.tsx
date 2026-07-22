@@ -184,7 +184,7 @@ export default function ChatBot({ activeExperiment, params }: ChatBotProps) {
             parts.push(
               <span
                 key={`math-${key}`}
-                className="inline-block px-1 align-middle"
+                className="inline px-0.5 align-baseline text-slate-800"
                 dangerouslySetInnerHTML={{ __html: html }}
               />
             );
@@ -206,7 +206,7 @@ export default function ChatBot({ activeExperiment, params }: ChatBotProps) {
             parts.push(
               <span
                 key={`math-${key}`}
-                className="inline-block px-1 align-middle"
+                className="inline px-0.5 align-baseline text-slate-800"
                 dangerouslySetInnerHTML={{ __html: html }}
               />
             );
@@ -290,45 +290,80 @@ export default function ChatBot({ activeExperiment, params }: ChatBotProps) {
           ];
         }
       } else {
-        const lines = block.content.split("\n");
-        return lines.map((line, lineIdx) => {
-          let displayLine = line;
-          let isBullet = false;
-          const trimmed = line.trim();
+        // Normalize line breaks
+        const normalized = block.content.replace(/\r\n/g, "\n");
+        const rawParagraphs = normalized.split(/\n{2,}/);
+        const elements: React.ReactNode[] = [];
 
-          if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
-            isBullet = true;
-            displayLine = line.replace(/^\s*[-*]\s/, "");
-          } else if (trimmed === "-" || trimmed === "*") {
-            isBullet = true;
-            displayLine = "";
+        rawParagraphs.forEach((rawPara, paraIdx) => {
+          const trimmedPara = rawPara.trim();
+          if (!trimmedPara) return;
+
+          const lines = trimmedPara.split("\n");
+          interface GroupedItem {
+            isBullet: boolean;
+            bulletPrefix?: string;
+            lines: string[];
           }
 
-          // Spacing for empty lines
-          if (trimmed === "") {
-            if (lineIdx > 0 && lineIdx < lines.length - 1) {
-              return <div key={`spacer-${blockIdx}-${lineIdx}`} className="h-1.5" />;
+          const groups: GroupedItem[] = [];
+          let currentGroup: GroupedItem | null = null;
+
+          lines.forEach((line) => {
+            const lineTrim = line.trim();
+            if (!lineTrim) return;
+
+            // Detect bullet/numbered list marker: "- ", "* ", "• ", "1. ", "2. ", etc.
+            const bulletMatch = lineTrim.match(/^([-*•]|\d+\.)\s+/);
+
+            if (bulletMatch) {
+              currentGroup = {
+                isBullet: true,
+                bulletPrefix: bulletMatch[0].trim(),
+                lines: [lineTrim.replace(/^([-*•]|\d+\.)\s+/, "")],
+              };
+              groups.push(currentGroup);
+            } else if (currentGroup && currentGroup.isBullet) {
+              // Continuation line for a bullet item
+              currentGroup.lines.push(lineTrim);
+            } else {
+              // Paragraph continuation line
+              if (!currentGroup || currentGroup.isBullet) {
+                currentGroup = {
+                  isBullet: false,
+                  lines: [lineTrim],
+                };
+                groups.push(currentGroup);
+              } else {
+                currentGroup.lines.push(lineTrim);
+              }
             }
-            return null; // ignore leading/trailing empty lines
-          }
+          });
 
-          const parsedNodes = parseInline(displayLine, `inline-${blockIdx}-${lineIdx}`);
+          groups.forEach((group, groupIdx) => {
+            // Join lines in paragraph/bullet item and clean up spaces before punctuation
+            const joinedText = group.lines.join(" ").replace(/\s+([,.:;!?])/g, "$1");
+            const itemKey = `txt-${blockIdx}-${paraIdx}-${groupIdx}`;
 
-          if (isBullet) {
-            return (
-              <div key={`bullet-${blockIdx}-${lineIdx}`} className="flex items-start gap-1.5 ml-2 mt-1 leading-relaxed text-slate-700">
-                <span className="text-blue-500 mt-1 select-none">•</span>
-                <span className="flex-1">{parsedNodes}</span>
-              </div>
-            );
-          } else {
-            return (
-              <p key={`p-${blockIdx}-${lineIdx}`} className="mt-1 leading-relaxed text-slate-700">
-                {parsedNodes}
-              </p>
-            );
-          }
+            if (group.isBullet) {
+              const prefix = group.bulletPrefix || "•";
+              elements.push(
+                <div key={`bullet-${itemKey}`} className="flex items-start gap-2 ml-1.5 mt-1.5 leading-relaxed text-slate-700">
+                  <span className="text-blue-600 font-bold text-xs mt-0.5 select-none shrink-0">{prefix}</span>
+                  <div className="flex-1 min-w-0">{parseInline(joinedText, itemKey)}</div>
+                </div>
+              );
+            } else {
+              elements.push(
+                <p key={`p-${itemKey}`} className="mt-2 leading-relaxed text-slate-700 first:mt-0">
+                  {parseInline(joinedText, itemKey)}
+                </p>
+              );
+            }
+          });
         });
+
+        return elements;
       }
     });
   };

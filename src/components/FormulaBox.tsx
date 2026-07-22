@@ -25,7 +25,7 @@ export function Latex({ math, block = false }: { math: string; block?: boolean }
   return (
     <span
       ref={containerRef}
-      className={block ? "block my-2 overflow-x-auto overflow-y-hidden py-1.5 text-center text-slate-800" : "inline-block text-slate-850"}
+      className={block ? "block my-2 overflow-x-auto overflow-y-hidden py-1.5 text-center text-slate-800" : "inline px-0.5 align-baseline"}
     />
   );
 }
@@ -462,13 +462,13 @@ export default function FormulaBox({
                   <div className="py-2.5 my-2 flex justify-center items-center bg-blue-50/30 border border-blue-100 rounded-xl text-lg sm:text-xl font-bold text-slate-900 shadow-sm px-4 overflow-x-auto">
                     <Latex math="i = \frac{\lambda D}{a}" block />
                   </div>
-                  <p className="mt-2">• <strong>Vị trí vân sáng (<Latex math="x_{\text{s}}" />):</strong></p>
+                  <p className="mt-2">• <strong>Vị trí vân sáng (<Latex math="x_{\text{sáng}}" />):</strong></p>
                   <div className="py-2.5 my-2 flex justify-center items-center bg-blue-50/30 border border-blue-100 rounded-xl text-lg sm:text-xl font-bold text-slate-900 shadow-sm px-4 overflow-x-auto">
-                    <Latex math="x_{\text{s}} = k \cdot i = k \frac{\lambda D}{a} \quad (k \in \mathbb{Z})" block />
+                    <Latex math="x_{\text{sáng}} = k \cdot i = k \frac{\lambda D}{a} \quad (k \in \mathbb{Z})" block />
                   </div>
-                  <p className="mt-2">• <strong>Vị trí vân tối (<Latex math="x_{\text{t}}" />):</strong></p>
+                  <p className="mt-2">• <strong>Vị trí vân tối (<Latex math="x_{\text{tối}}" />):</strong></p>
                   <div className="py-2.5 my-2 flex justify-center items-center bg-blue-50/30 border border-blue-100 rounded-xl text-lg sm:text-xl font-bold text-slate-900 shadow-sm px-4 overflow-x-auto">
-                    <Latex math="x_{\text{t}} = (k + 0.5) \cdot i = (k + 0.5) \frac{\lambda D}{a} \quad (k \in \mathbb{Z})" block />
+                    <Latex math="x_{\text{tối}} = \left(k + \frac{1}{2}\right) i = \left(k + \frac{1}{2}\right) \frac{\lambda D}{a} \quad (k \in \mathbb{Z})" block />
                   </div>
                 </div>
               </div>
@@ -481,8 +481,8 @@ export default function FormulaBox({
                   <div className="py-2.5 my-2 flex justify-center items-center bg-purple-50/30 border border-purple-100 rounded-xl text-lg sm:text-xl font-bold text-slate-900 shadow-sm px-4 overflow-x-auto">
                     <Latex math="d_2 - d_1 = \frac{a \cdot x}{D}" block />
                   </div>
-                  <p className="mt-2">• <strong>Điều kiện vân sáng:</strong> <Latex math="d_2 - d_1 = k \cdot \lambda" /></p>
-                  <p>• <strong>Điều kiện vân tối:</strong> <Latex math="d_2 - d_1 = (k + 0.5) \cdot \lambda" /></p>
+                  <p className="mt-2">• <strong>Điều kiện vân sáng:</strong> <Latex math="d_2 - d_1 = k \cdot \lambda \quad (k \in \mathbb{Z})" /></p>
+                  <p>• <strong>Điều kiện vân tối:</strong> <Latex math="d_2 - d_1 = \left(k + \frac{1}{2}\right) \lambda \quad (k \in \mathbb{Z})" /></p>
                 </div>
               </div>
 
